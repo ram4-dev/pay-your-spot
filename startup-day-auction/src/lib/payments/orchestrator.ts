@@ -1,3 +1,5 @@
+import "server-only";
+
 import { getAuctionDatabase, type AuctionDatabase } from "@/lib/auction/database";
 import {
   applyProviderPayment,

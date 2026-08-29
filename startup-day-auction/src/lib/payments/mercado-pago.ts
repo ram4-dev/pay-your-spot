@@ -1,3 +1,5 @@
+import "server-only";
+
 import type { ProviderPayment } from "@/lib/auction/types";
 
 import {

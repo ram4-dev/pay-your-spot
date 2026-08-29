@@ -1,3 +1,5 @@
+import "server-only";
+
 import { MercadoPagoProvider } from "./mercado-pago";
 import { TestPaymentProvider } from "./test-provider";
 import { type PaymentProvider, PaymentProviderError } from "./types";
