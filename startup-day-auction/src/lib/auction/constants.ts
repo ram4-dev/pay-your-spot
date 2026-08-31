@@ -4,7 +4,7 @@ export function getAuctionDurationMs() {
   const configuredSeconds = Number(process.env.AUCTION_DURATION_SECONDS);
 
   if (
-    process.env.ENABLE_TEST_PAYMENT_PROVIDER === "1" &&
+    process.env.ENABLE_TEST_TIME_OVERRIDES === "1" &&
     Number.isFinite(configuredSeconds) &&
     configuredSeconds > 0
   ) {

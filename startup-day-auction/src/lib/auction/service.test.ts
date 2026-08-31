@@ -12,7 +12,7 @@ const input=(company="Prisma",amountCents=15_000_000)=>({spotId:"new-spot",compa
 
 describe("email reservation auction",()=>{
   let db:AuctionDatabase;
-  beforeEach(()=>{delete process.env.AUCTION_DURATION_SECONDS;delete process.env.ENABLE_TEST_PAYMENT_PROVIDER;db=createAuctionDatabase();});
+  beforeEach(()=>{delete process.env.AUCTION_DURATION_SECONDS;delete process.env.ENABLE_TEST_TIME_OVERRIDES;db=createAuctionDatabase();});
   afterEach(()=>db.close());
 
   it("starts exactly 72 hours and stores the bidder email",()=>{

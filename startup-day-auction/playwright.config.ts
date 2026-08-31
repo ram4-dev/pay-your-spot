@@ -28,7 +28,7 @@ export default defineConfig({
     timeout: 30_000,
     env: {
       DATABASE_PATH: E2E_DATABASE_PATH,
-      ENABLE_TEST_PAYMENT_PROVIDER: "1",
+      ENABLE_TEST_TIME_OVERRIDES: "1",
       AUCTION_DURATION_SECONDS: "5",
       AUCTION_SCHEDULER_INTERVAL_MS: "500",
       PUBLIC_APP_URL: "http://127.0.0.1:3211",
