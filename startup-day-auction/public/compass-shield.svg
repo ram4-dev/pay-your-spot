@@ -1,0 +1,7 @@
+<svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Compass</title><desc id="desc">Escudo y aguja de Compass.</desc>
+  <rect width="160" height="160" rx="40" fill="#0D1F17"/>
+  <path d="M80 132S119 112.5 119 73.5V39L80 24 41 39v34.5C41 112.5 80 132 80 132Z" fill="#5FD3BC" fill-opacity=".16" stroke="#5FD3BC" stroke-width="8" stroke-linejoin="round"/>
+  <path d="m96 52-12 36-36 12 12-36 36-12Z" fill="#F4F0E6"/>
+  <path d="m64 68 20 20" stroke="#0EA37A" stroke-width="6" stroke-linecap="round"/>
+</svg>

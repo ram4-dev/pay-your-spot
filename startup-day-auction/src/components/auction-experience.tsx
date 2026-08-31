@@ -107,7 +107,8 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
       <header className="site-header">
         <nav className="nav-shell" aria-label="Navegación principal">
           <a className="brand" href="#inicio">
-            Startup Day <sup>2026</sup>
+            <Image src="/compass-gate.svg" alt="" width={38} height={38} priority />
+            <span><strong>Startup Day</strong><small>powered by Compass</small></span>
           </a>
           <div className="nav-links">
             <a href="#subasta">Subasta en vivo</a>
@@ -126,12 +127,19 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
       </header>
 
       <section className="hero" id="inicio">
-        <h1>
-          Tu marca, en el <em>centro.</em>
-        </h1>
-        <p className="hero-copy">
-          Elegí un lugar real en la pancarta, ofertá sin pagar y seguí la subasta durante 72 horas.
-        </p>
+        <div className="hero-grid">
+          <div className="hero-copy-block">
+            <p className="hero-kicker">Compass placement protocol · Startup Day 2026</p>
+            <h1>Tu marca, en el <em>lugar correcto.</em></h1>
+            <p className="hero-copy">Elegí una ubicación real, subí tu logo y ofertá sin pagar. Compass mantiene cada lugar, oferta y reserva trazable durante las 72 horas.</p>
+          </div>
+          <div className="hero-compass" aria-label="Compass protege el proceso de asignación">
+            <span className="hero-compass-grid" aria-hidden="true" />
+            <Image src="/compass-shield.svg" alt="Compass" width={160} height={160} priority />
+            <div className="hero-compass-copy"><span>Allocation gate</span><strong>Compass</strong><small>Verifica · ordena · reserva</small></div>
+            <span className="hero-compass-status"><i /> Gate online</span>
+          </div>
+        </div>
         <div className="metric-row" aria-label="Estado actual de la subasta">
           <div className="metric">
             <strong data-testid="active-auctions">{state.metrics.activeAuctions}</strong>
@@ -160,7 +168,7 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
         </div>
 
         <div className="banner-map" aria-label="Mapa real de lugares en la pancarta">
-          <div className="banner-stage-copy" aria-hidden="true"><strong>STARTUP<br />DAY</strong><span>2026 · Buenos Aires</span></div>
+          <div className="banner-stage-copy" aria-hidden="true"><Image src="/compass-gate.svg" alt="" width={160} height={160}/><strong>STARTUP<br />DAY</strong><span>POWERED BY COMPASS · 2026</span></div>
           {state.spots.map((spot) => (
             <SpotCard key={spot.id} spot={spot} now={now} onSelect={openSpot} onViewOffers={viewOffers} />
           ))}
@@ -190,7 +198,7 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
 
       <footer className="footer">
         <div className="footer-inner">
-          <span className="brand">Startup Day <sup>2026</sup></span>
+          <span className="brand"><Image src="/compass-gate.svg" alt="" width={38} height={38}/><span><strong>Startup Day</strong><small>powered by Compass</small></span></span>
           <p>Subastas y reservas administradas por email · importes expresados en pesos argentinos.</p>
           <button
             className="button button--dark"
