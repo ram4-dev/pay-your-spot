@@ -20,6 +20,8 @@ test("bids without charging, emails the winner checkout, and locks only after pa
 
   await placeBid(page,"First E2E","first@example.com","150000");
   await expect(page.getByTestId("active-auctions")).toHaveText("1");await expect(page.getByTestId("total-raised")).toContainText("0");
+  await page.getByTestId("view-offers-new-spot").click();
+  await expect(page.locator("#ranking")).toBeInViewport();
   await expect(page.getByTestId("ranking-list")).toContainText("First E2E");
   await expect(page.getByTestId("my-bids-list")).toContainText("f••••@example.com");
   await placeBid(page,"Winner E2E","winner@example.com","155000");
@@ -38,18 +40,18 @@ test("bids without charging, emails the winner checkout, and locks only after pa
   await page.goto(checkoutUrl);await expect(page.getByRole("heading",{name:"Completar pago ganador"})).toBeVisible();
   await page.getByRole("button",{name:"Aprobar pago de prueba"}).click();await expect(page.getByRole("heading",{name:"Oferta confirmada"})).toBeVisible();
   await page.getByRole("link",{name:"Volver a la subasta"}).click();
-  await expect(page.getByTestId("total-raised")).toContainText("155.000");await expect(page.getByTestId("spot-card-new-spot")).toBeDisabled();
+  await expect(page.getByTestId("total-raised")).toContainText("155.000");await expect(page.getByTestId("offer-button-new-spot")).toBeDisabled();
 });
 
 test("shows an animated contextual brand preview and floating action on mobile",async({page})=>{
   await page.setViewportSize({width:390,height:844});await page.goto("/");
-  await page.getByTestId("spot-card-top-band").click();const dialog=page.getByTestId("bid-dialog");
+  await page.getByTestId("offer-button-top-band").click();const dialog=page.getByTestId("bid-dialog");
   await dialog.getByLabel("Marca o empresa").fill("Prisma Labs");await expect(dialog.getByLabel(/Vista previa de Prisma Labs/)).toContainText("Prisma Labs");
   await page.getByRole("button",{name:"Cerrar"}).click();await expect(page.getByTestId("floating-bid-tab")).toContainText("Franja superior");
 });
 
 async function placeBid(page:import("@playwright/test").Page,company:string,email:string,amount:string){
-  await page.getByTestId("spot-card-new-spot").click();const dialog=page.getByTestId("bid-dialog");
+  await page.getByTestId("offer-button-new-spot").click();const dialog=page.getByTestId("bid-dialog");
   await dialog.getByLabel("Marca o empresa").fill(company);await dialog.getByLabel("Tu oferta").fill(amount);await dialog.getByLabel("Email de contacto").fill(email);
   await dialog.getByRole("button",{name:/Confirmar oferta sin pagar/}).click();await expect(page.getByTestId("bid-confirmed")).toBeVisible();
   await dialog.getByRole("button",{name:"Seguir la subasta"}).click();

@@ -88,6 +88,11 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
     void refreshTrackedBids();
   }
 
+  function viewOffers(spot: PublicSpot) {
+    setSelectedId(spot.id);
+    window.requestAnimationFrame(() => document.getElementById("ranking")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
   const nearestEnd = state.spots
     .filter((spot) => spot.status === "ACTIVE" && spot.endsAt)
     .map((spot) => spot.endsAt!)
@@ -157,7 +162,7 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
         <div className="banner-map" aria-label="Mapa real de lugares en la pancarta">
           <div className="banner-stage-copy" aria-hidden="true"><strong>STARTUP<br />DAY</strong><span>2026 · Buenos Aires</span></div>
           {state.spots.map((spot) => (
-            <SpotCard key={spot.id} spot={spot} now={now} onSelect={openSpot} />
+            <SpotCard key={spot.id} spot={spot} now={now} onSelect={openSpot} onViewOffers={viewOffers} />
           ))}
         </div>
         <div className="auction-legend">
@@ -227,10 +232,12 @@ function SpotCard({
   spot,
   now,
   onSelect,
+  onViewOffers,
 }: {
   spot: PublicSpot;
   now: number;
   onSelect: (spot: PublicSpot) => void;
+  onViewOffers: (spot: PublicSpot) => void;
 }) {
   const unavailable = spot.status === "LOCKED" || spot.status === "AWAITING_PAYMENT";
   const stateLabel = spot.status === "LOCKED"
@@ -242,13 +249,10 @@ function SpotCard({
       : "Disponible";
 
   return (
-    <button
+    <article
       className={`banner-slot banner-slot--${spot.id} spot-card spot-card--${spot.tone}${unavailable ? " spot-card--locked" : ""}`}
-      type="button"
-      onClick={() => onSelect(spot)}
-      disabled={unavailable}
       data-testid={`spot-card-${spot.id}`}
-      aria-label={unavailable ? `${spot.placement}, ${stateLabel}` : `Ofertar por ${spot.placement}`}
+      aria-label={`${spot.placement}, ${stateLabel}`}
     >
       <span className="spot-card-top">
         <span>{spot.tier} · {spot.sizeLabel}</span>
@@ -264,9 +268,16 @@ function SpotCard({
           <strong>{formatArs(spot.currentBidCents ?? spot.startingAmountCents)}</strong>
           <span className="spot-sponsor">{spot.sponsor ?? "Sin ofertas todavía"}</span>
         </span>
-        <span className="spot-arrow" aria-hidden="true">↗</span>
+        <span className="spot-actions">
+          <button className="spot-action spot-action--secondary" type="button" onClick={() => onViewOffers(spot)} data-testid={`view-offers-${spot.id}`}>
+            Ver ofertas{spot.ranking.length ? ` · ${spot.ranking.length}` : ""}
+          </button>
+          <button className="spot-action spot-action--primary" type="button" onClick={() => onSelect(spot)} disabled={unavailable} data-testid={`offer-button-${spot.id}`}>
+            {unavailable ? stateLabel : "Ofertar"} <span aria-hidden="true">↗</span>
+          </button>
+        </span>
       </span>
-    </button>
+    </article>
   );
 }
 
