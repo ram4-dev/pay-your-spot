@@ -1,5 +1,4 @@
 export const DEFAULT_AUCTION_DURATION_MS = 72 * 60 * 60 * 1000;
-export const DEFAULT_PAYMENT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export function getAuctionDurationMs() {
   const configuredSeconds = Number(process.env.AUCTION_DURATION_SECONDS);
@@ -15,11 +14,6 @@ export function getAuctionDurationMs() {
   return DEFAULT_AUCTION_DURATION_MS;
 }
 
-export function getPaymentWindowMs() {
-  const configuredSeconds = Number(process.env.PAYMENT_WINDOW_SECONDS);
-  if (process.env.ENABLE_TEST_PAYMENT_PROVIDER === "1" && Number.isFinite(configuredSeconds) && configuredSeconds > 0) return configuredSeconds * 1000;
-  return DEFAULT_PAYMENT_WINDOW_MS;
-}
 
 export type SpotSeed = {
   id: string;

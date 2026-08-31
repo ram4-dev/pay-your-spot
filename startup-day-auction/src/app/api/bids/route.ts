@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { AuctionError } from "@/lib/auction/service";
-import { placeAuctionBid } from "@/lib/payments/orchestrator";
+import { getAuctionDatabase } from "@/lib/auction/database";
+import { AuctionError, getAuctionState, placeBid } from "@/lib/auction/service";
 
 export const runtime = "nodejs";
 
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const bid = placeAuctionBid(
+    const bid = placeBid(getAuctionDatabase(),
       {
         spotId: parsed.data.spotId,
         company: parsed.data.company,
@@ -30,7 +30,8 @@ export async function POST(request: Request) {
         amountCents: parsed.data.amountArs * 100,
       },
     );
-    return Response.json(bid, { status: 201 });
+    const spot=getAuctionState(getAuctionDatabase()).spots.find(candidate=>candidate.id===bid.spotId)!;
+    return Response.json({bidId:bid.id,status:bid.status,endsAt:spot.endsAt}, { status: 201 });
   } catch (error) {
     if (error instanceof AuctionError) {
       return Response.json(

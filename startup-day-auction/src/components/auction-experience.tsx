@@ -15,8 +15,8 @@ const steps = [
     copy: "Tu oferta entra de inmediato. No se cobra nada mientras la subasta está abierta.",
   },
   {
-    title: "Pagá sólo si ganás",
-    copy: "Al cierre te enviamos un link de Mercado Pago válido por 24 horas. Si vence, el lugar vuelve a subasta.",
+    title: "Queda reservado",
+    copy: "Al cierre, el lugar queda reservado al email ganador para que el equipo continúe la gestión manualmente.",
   },
 ];
 
@@ -77,7 +77,7 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
   );
 
   function openSpot(spot: PublicSpot) {
-    if (spot.status === "LOCKED" || spot.status === "AWAITING_PAYMENT") return;
+    if (spot.status === "RESERVED") return;
     setSelectedId(spot.id);
     setDialogOpen(true);
   }
@@ -138,8 +138,8 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
             <span>Subastas activas ahora</span>
           </div>
           <div className="metric">
-            <strong data-testid="total-raised">{formatArs(state.metrics.totalRaisedCents)}</strong>
-            <span>Recaudado confirmado</span>
+            <strong data-testid="reserved-value">{formatArs(state.metrics.reservedValueCents)}</strong>
+            <span>Valor de reservas cerradas</span>
           </div>
           <div className="metric">
             <strong>{nearestEnd ? formatCountdown(nearestEnd, now) : "—"}</strong>
@@ -167,7 +167,7 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
         </div>
         <div className="auction-legend">
           <span>La primera oferta inicia el reloj de 72 horas. No se cobra al ofertar.</span>
-          <span>El ganador recibe por email un link de pago válido por 24 horas.</span>
+          <span>Al cierre, la reserva queda vinculada al email ganador para gestión manual.</span>
         </div>
         {selectedSpot && <AuctionRanking spot={selectedSpot} spots={state.spots} now={now} onSelect={setSelectedId} />}
       </section>
@@ -191,7 +191,7 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
       <footer className="footer">
         <div className="footer-inner">
           <span className="brand">Startup Day <sup>2026</sup></span>
-          <p>Pagos procesados por Mercado Pago · importes expresados en pesos argentinos.</p>
+          <p>Subastas y reservas administradas por email · importes expresados en pesos argentinos.</p>
           <button
             className="button button--dark"
             type="button"
@@ -239,11 +239,9 @@ function SpotCard({
   onSelect: (spot: PublicSpot) => void;
   onViewOffers: (spot: PublicSpot) => void;
 }) {
-  const unavailable = spot.status === "LOCKED" || spot.status === "AWAITING_PAYMENT";
-  const stateLabel = spot.status === "LOCKED"
-    ? "Cerrada"
-    : spot.status === "AWAITING_PAYMENT"
-      ? "Esperando pago"
+  const unavailable = spot.status === "RESERVED";
+  const stateLabel = spot.status === "RESERVED"
+    ? "Reservada"
     : spot.status === "ACTIVE"
       ? formatCountdown(spot.endsAt, now)
       : "Disponible";
@@ -355,7 +353,7 @@ function BidDialog({
         {confirmed ? <div className="bid-confirmed" data-testid="bid-confirmed">
           <span aria-hidden="true">✓</span>
           <h3>Oferta registrada</h3>
-          <p>No pagaste nada ahora. Si tu oferta queda primera al cierre, vas a recibir por email un link de Mercado Pago válido durante 24 horas.</p>
+          <p>La oferta y el email quedaron guardados. Si terminás primero, el lugar quedará reservado a ese correo para que el equipo te contacte manualmente.</p>
           <button className="button button--dark" type="button" onClick={onClose}>Seguir la subasta</button>
         </div> : <form className="bid-form" onSubmit={submit}>
           <BrandPreview spot={spot} company={company} />
@@ -388,7 +386,7 @@ function BidDialog({
             {submitting ? "Registrando oferta…" : "Confirmar oferta sin pagar"} <span aria-hidden="true">↗</span>
           </button>
           <p className="form-note">
-            Si ganás, el link de Mercado Pago llega a este email al cierre. Tendrás 24 horas para completar el pago.
+            Este email identifica tu oferta y la futura reserva. No se realiza ningún cobro ni envío automático.
           </p>
         </form>}
       </section>
@@ -405,11 +403,11 @@ function AuctionRanking({spot,spots,now,onSelect}:{spot:PublicSpot;spots:PublicS
     <div className="ranking-summary">
       <span className={`auction-state auction-state--${spot.status.toLowerCase()}`}>{spotStatusLabel(spot.status)}</span>
       <strong>{spot.ranking.length} {spot.ranking.length===1?"oferta":"ofertas"}</strong>
-      <span>{spot.status==="ACTIVE"?`Cierra en ${formatCountdown(spot.endsAt,now)}`:spot.status==="AWAITING_PAYMENT"?"Ganador notificado por email":spot.status==="LOCKED"?"Lugar adjudicado":"Todavía no comenzó"}</span>
+      <span>{spot.status==="ACTIVE"?`Cierra en ${formatCountdown(spot.endsAt,now)}`:spot.status==="RESERVED"?"Reserva vinculada al email ganador":"Todavía no comenzó"}</span>
     </div>
     {spot.ranking.length ? <ol className="ranking-list" data-testid="ranking-list">
       {spot.ranking.map(bid=><li key={`${bid.createdAt}-${bid.rank}`} className={bid.rank===1?"ranking-row ranking-row--leader":"ranking-row"}>
-        <span className="rank-number">#{bid.rank}</span><span className="rank-brand"><strong>{bid.company}</strong><small>{bid.rank===1?"Liderando":"Oferta superada"}</small></span><strong className="rank-amount">{formatArs(bid.amountCents)}</strong><span className="rank-status">{bidStatusLabel(bid.status)}</span>
+        <span className="rank-number">#{bid.rank}</span><span className="rank-brand"><strong>{bid.company}</strong><small>{bid.status==="RESERVED"||bid.status==="CONTACTED"?"Ganadora":bid.rank===1?"Liderando":"Oferta superada"}</small></span><strong className="rank-amount">{formatArs(bid.amountCents)}</strong><span className="rank-status">{bidStatusLabel(bid.status)}</span>
       </li>)}
     </ol> : <div className="ranking-empty"><strong>Sin ofertas todavía</strong><span>La primera oferta abre esta subasta durante 72 horas.</span></div>}
   </section>;
@@ -417,24 +415,22 @@ function AuctionRanking({spot,spots,now,onSelect}:{spot:PublicSpot;spots:PublicS
 
 function MyBids({bids,now}:{bids:TrackedBid[];now:number}) {
   return <section className="my-bids" id="mis-ofertas" aria-labelledby="my-bids-title">
-    <div className="my-bids-head"><div><p className="eyebrow">Seguimiento privado en este dispositivo</p><h2 id="my-bids-title">Mis ofertas</h2></div><p>El email nunca aparece en el ranking público. Acá podés verificar a qué correo está vinculada cada oferta y seguir su estado.</p></div>
+    <div className="my-bids-head"><div><p className="eyebrow">Seguimiento privado en este dispositivo</p><h2 id="my-bids-title">Mis ofertas</h2></div><p>El email nunca aparece en el ranking público. Acá podés verificar qué oferta o reserva está vinculada a tu correo.</p></div>
     {bids.length ? <div className="my-bids-grid" data-testid="my-bids-list">{bids.map(bid=><article className="my-bid" key={bid.id}>
       <div className="my-bid-top"><span className="auction-state">{bidStatusLabel(bid.status)}</span><span>{bid.rank?`#${bid.rank} en el ranking`:"Ronda finalizada"}</span></div>
       <h3>{bid.placement}</h3><strong className="my-bid-amount">{formatArs(bid.amountCents)}</strong>
       <dl><div><dt>Marca</dt><dd>{bid.company}</dd></div><div><dt>Email vinculado</dt><dd>{bid.maskedEmail}</dd></div><div><dt>Estado</dt><dd>{trackedBidExplanation(bid,now)}</dd></div></dl>
-      {bid.status==="PAYMENT_PENDING"&&bid.checkoutUrl&&<a className="button button--red" href={bid.checkoutUrl}>Pagar oferta ganadora ↗</a>}
     </article>)}</div> : <div className="my-bids-empty"><strong>Todavía no ofertaste desde este navegador.</strong><span>Cuando confirmes una oferta va a aparecer acá, vinculada al email que ingresaste.</span></div>}
   </section>;
 }
 
-function bidStatusLabel(status:BidStatus) { return ({LEADING:"Liderando",OUTBID:"Superada",PAYMENT_PENDING:"Esperando pago",PAID:"Pagada",PAYMENT_EXPIRED:"Pago vencido",REFUND_PENDING:"Reembolso pendiente",REFUND_FAILED:"Reembolso en revisión",REFUNDED:"Reembolsada",FAILED:"Fallida"} satisfies Record<BidStatus,string>)[status]; }
-function spotStatusLabel(status:PublicSpot["status"]) { return {AVAILABLE:"Disponible",ACTIVE:"En vivo",AWAITING_PAYMENT:"Esperando pago",LOCKED:"Adjudicada"}[status]; }
+function bidStatusLabel(status:BidStatus) { return ({LEADING:"Liderando",OUTBID:"Superada",RESERVED:"Reservada",CONTACTED:"Contactada",FAILED:"Fallida"} satisfies Record<BidStatus,string>)[status]; }
+function spotStatusLabel(status:PublicSpot["status"]) { return {AVAILABLE:"Disponible",ACTIVE:"En vivo",RESERVED:"Reservada"}[status]; }
 function trackedBidExplanation(bid:TrackedBid,now:number) {
   if(bid.status==="LEADING") return `Vas primero. La subasta cierra en ${formatCountdown(bid.endsAt,now)}.`;
   if(bid.status==="OUTBID") return "Otra marca hizo una oferta mayor. Podés volver a ofertar.";
-  if(bid.status==="PAYMENT_PENDING") return bid.paymentLinkSentAt?`Enviamos el link al email. Vence en ${formatCountdown(bid.paymentDueAt,now)}.`:"Ganaste. Estamos preparando el link de pago para tu email.";
-  if(bid.status==="PAID") return "Pago confirmado y lugar adjudicado.";
-  if(bid.status==="PAYMENT_EXPIRED") return "El plazo de pago venció y el lugar volvió a subasta.";
+  if(bid.status==="RESERVED") return "Ganaste. El lugar está reservado a tu email para gestión manual.";
+  if(bid.status==="CONTACTED") return "Reserva confirmada y marcada como contactada por el equipo.";
   return bidStatusLabel(bid.status);
 }
 
