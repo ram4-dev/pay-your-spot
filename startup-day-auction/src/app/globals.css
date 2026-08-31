@@ -81,7 +81,7 @@ button { color: inherit; }
   padding: 104px 0 92px;
   text-align: center;
 }
-.live-pill, .status-pill {
+.status-pill {
   display: inline-flex;
   align-items: center;
   gap: 9px;
@@ -94,15 +94,6 @@ button { color: inherit; }
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--red);
-  box-shadow: 0 0 0 5px rgba(255, 76, 46, 0.13);
-  animation: pulse 1.8s infinite;
-}
-@keyframes pulse { 50% { box-shadow: 0 0 0 9px rgba(255, 76, 46, 0); } }
 .hero h1 {
   max-width: 1060px;
   margin: 28px auto 24px;

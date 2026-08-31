@@ -65,4 +65,4 @@ function migrate(database:DatabaseSync){
   database.exec("PRAGMA user_version=3; PRAGMA foreign_keys=ON");
 }
 
-function seed(database:DatabaseSync){const insert=database.prepare("INSERT OR IGNORE INTO spots(id,placement,description,size_label,tier,tone,starting_amount_cents,increment_amount_cents)VALUES(?,?,?,?,?,?,?,?)");transaction(database,()=>{for(const s of SPOT_SEEDS)insert.run(s.id,s.placement,s.description,s.sizeLabel,s.tier,s.tone,s.startingAmountCents,s.incrementAmountCents);});}
+function seed(database:DatabaseSync){const insert=database.prepare("INSERT INTO spots(id,placement,description,size_label,tier,tone,starting_amount_cents,increment_amount_cents)VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET starting_amount_cents=excluded.starting_amount_cents");transaction(database,()=>{for(const s of SPOT_SEEDS)insert.run(s.id,s.placement,s.description,s.sizeLabel,s.tier,s.tone,s.startingAmountCents,s.incrementAmountCents);});}

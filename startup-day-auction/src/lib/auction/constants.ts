@@ -27,6 +27,7 @@ export type SpotSeed = {
 };
 
 const ars = (amount: number) => amount * 100;
+const STARTING_AMOUNT_CENTS = ars(5_000);
 
 export const SPOT_SEEDS: SpotSeed[] = [
   {
@@ -36,7 +37,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     sizeLabel: "2,4 m × 0,6 m",
     tier: "Premium",
     tone: "charcoal",
-    startingAmountCents: ars(680_000),
+    startingAmountCents: STARTING_AMOUNT_CENTS,
     incrementAmountCents: ars(10_000),
   },
   {
@@ -46,7 +47,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     sizeLabel: "1,2 m × 1,2 m",
     tier: "Estándar",
     tone: "indigo",
-    startingAmountCents: ars(540_000),
+    startingAmountCents: STARTING_AMOUNT_CENTS,
     incrementAmountCents: ars(10_000),
   },
   {
@@ -56,7 +57,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     sizeLabel: "1,2 m × 0,6 m",
     tier: "Estándar",
     tone: "brick",
-    startingAmountCents: ars(480_000),
+    startingAmountCents: STARTING_AMOUNT_CENTS,
     incrementAmountCents: ars(10_000),
   },
   {
@@ -66,7 +67,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     sizeLabel: "1,2 m × 0,6 m",
     tier: "Estándar",
     tone: "rose",
-    startingAmountCents: ars(390_000),
+    startingAmountCents: STARTING_AMOUNT_CENTS,
     incrementAmountCents: ars(10_000),
   },
   {
@@ -76,7 +77,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     sizeLabel: "0,8 m × 0,8 m",
     tier: "Compacto",
     tone: "blue",
-    startingAmountCents: ars(280_000),
+    startingAmountCents: STARTING_AMOUNT_CENTS,
     incrementAmountCents: ars(5_000),
   },
   {
@@ -86,7 +87,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     sizeLabel: "0,8 m × 0,8 m",
     tier: "Compacto",
     tone: "violet",
-    startingAmountCents: ars(260_000),
+    startingAmountCents: STARTING_AMOUNT_CENTS,
     incrementAmountCents: ars(5_000),
   },
   {
@@ -96,7 +97,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     sizeLabel: "0,8 m × 0,6 m",
     tier: "Compacto",
     tone: "green",
-    startingAmountCents: ars(240_000),
+    startingAmountCents: STARTING_AMOUNT_CENTS,
     incrementAmountCents: ars(5_000),
   },
   {
@@ -106,7 +107,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     sizeLabel: "0,8 m × 0,6 m",
     tier: "Compacto",
     tone: "yellow",
-    startingAmountCents: ars(220_000),
+    startingAmountCents: STARTING_AMOUNT_CENTS,
     incrementAmountCents: ars(5_000),
   },
   {
@@ -116,7 +117,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     sizeLabel: "0,8 m × 0,8 m",
     tier: "Compacto",
     tone: "sand",
-    startingAmountCents: ars(200_000),
+    startingAmountCents: STARTING_AMOUNT_CENTS,
     incrementAmountCents: ars(5_000),
   },
   {
@@ -126,7 +127,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     sizeLabel: "0,6 m × 0,6 m",
     tier: "Compacto",
     tone: "slate",
-    startingAmountCents: ars(180_000),
+    startingAmountCents: STARTING_AMOUNT_CENTS,
     incrementAmountCents: ars(5_000),
   },
   {
@@ -136,7 +137,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     sizeLabel: "0,6 m × 0,6 m",
     tier: "Compacto",
     tone: "orange",
-    startingAmountCents: ars(160_000),
+    startingAmountCents: STARTING_AMOUNT_CENTS,
     incrementAmountCents: ars(5_000),
   },
   {
@@ -146,7 +147,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     sizeLabel: "0,6 m × 0,6 m",
     tier: "Compacto",
     tone: "open",
-    startingAmountCents: ars(150_000),
+    startingAmountCents: STARTING_AMOUNT_CENTS,
     incrementAmountCents: ars(5_000),
   },
 ];

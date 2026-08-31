@@ -122,10 +122,6 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
       </header>
 
       <section className="hero" id="inicio">
-        <div className="live-pill">
-          <span className="live-dot" />
-          {state.metrics.activeAuctions} {state.metrics.activeAuctions === 1 ? "subasta activa" : "subastas activas"}
-        </div>
         <h1>
           Tu marca, en el <em>centro.</em>
         </h1>
