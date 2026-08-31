@@ -8,6 +8,9 @@ test("persists the auction and reserves the winner by email without expiration",
   await page.reload();await expect(page.getByTestId("my-bids-list")).toContainText("w•••••@example.com");
   await expect.poll(async()=>await page.getByTestId("offer-button-new-spot").isDisabled(),{timeout:15_000}).toBe(true);
   await expect(page.getByTestId("spot-card-new-spot")).toContainText("Reservada");await expect(page.getByTestId("my-bids-list")).not.toContainText("Pago vencido");
+
+  await page.goto("/admin/reservas");await page.getByLabel("Token de administración").fill("e2e-admin-token");await page.getByRole("button",{name:"Abrir panel"}).click();
+  await expect(page.getByText("winner@example.com")).toBeVisible();await expect(page.getByText("first@example.com")).toBeVisible();await expect(page.getByText("Reservada",{exact:true})).toBeVisible();
 });
 
 test("keeps direct offer and ranking actions usable on mobile",async({page})=>{

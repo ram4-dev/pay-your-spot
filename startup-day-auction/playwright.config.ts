@@ -28,13 +28,11 @@ export default defineConfig({
     timeout: 30_000,
     env: {
       DATABASE_PATH: E2E_DATABASE_PATH,
-      PAYMENT_PROVIDER: "test",
       ENABLE_TEST_PAYMENT_PROVIDER: "1",
-      EMAIL_PROVIDER: "test",
       AUCTION_DURATION_SECONDS: "5",
-      PAYMENT_WINDOW_SECONDS: "20",
       AUCTION_SCHEDULER_INTERVAL_MS: "500",
       PUBLIC_APP_URL: "http://127.0.0.1:3211",
+      ADMIN_ACCESS_TOKEN: "e2e-admin-token",
     },
   },
 });
