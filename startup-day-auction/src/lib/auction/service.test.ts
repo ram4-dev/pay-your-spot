@@ -1,6 +1,7 @@
 import { mkdtempSync,rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { afterEach,beforeEach,describe,expect,it } from "vitest";
 import { DEFAULT_AUCTION_DURATION_MS } from "./constants";
 import { createAuctionDatabase,type AuctionDatabase } from "./database";
@@ -34,5 +35,15 @@ describe("email reservation auction",()=>{
     const reopened=createAuctionDatabase(filename),tracked=getTrackedBid(reopened,bid.id),contacts=listContactRecords(reopened);
     expect(tracked).toMatchObject({company:"Persistent",maskedEmail:"p•••••@example.com",status:"RESERVED"});expect(contacts[0]).toMatchObject({email:"persistent@example.com",bidStatus:"RESERVED"});
     expect(markContacted(reopened,bid.id)).toBe(1);expect(getInternalBid(reopened,bid.id)?.status).toBe("CONTACTED");reopened.close();rmSync(directory,{recursive:true,force:true});
+  });
+  it("migrates a legacy payment-expired winner into a permanent reservation",()=>{
+    const directory=mkdtempSync(join(tmpdir(),"startup-day-legacy-")),filename=join(directory,"auction.sqlite"),legacy=new DatabaseSync(filename);
+    legacy.exec(`CREATE TABLE spots(id TEXT PRIMARY KEY,placement TEXT,description TEXT,size_label TEXT,tier TEXT,tone TEXT,starting_amount_cents INTEGER,increment_amount_cents INTEGER,status TEXT,started_at TEXT,ends_at TEXT,payment_due_at TEXT,locked_at TEXT,leading_bid_id TEXT,auction_round INTEGER);
+      CREATE TABLE bids(id TEXT PRIMARY KEY,spot_id TEXT,bidder_company TEXT,bidder_email TEXT,amount_cents INTEGER,status TEXT,created_at TEXT,updated_at TEXT);
+      INSERT INTO spots VALUES('new-spot','Módulo emergente','Entrada','0,6 m','Compacto','open',15000000,500000,'AVAILABLE','2026-08-29T15:00:00Z','2026-09-01T15:00:00Z',NULL,NULL,NULL,1);
+      INSERT INTO bids VALUES('legacy-winner','new-spot','Legacy Winner','legacy@example.com',15500000,'PAYMENT_EXPIRED','2026-08-29T15:00:00Z','2026-09-02T15:00:00Z');`);legacy.close();
+    const migrated=createAuctionDatabase(filename),spot=getAuctionState(migrated).spots.find(candidate=>candidate.id==="new-spot")!;
+    expect(spot).toMatchObject({status:"RESERVED",sponsor:"Legacy Winner"});expect(getInternalBid(migrated,"legacy-winner")).toMatchObject({status:"RESERVED",email:"legacy@example.com"});
+    migrated.close();rmSync(directory,{recursive:true,force:true});
   });
 });
