@@ -11,19 +11,19 @@ const steps = [
     copy: "Cada módulo muestra su estado, la oferta líder y el mínimo exacto para entrar.",
   },
   {
-    title: "Pagá tu oferta",
-    copy: "Mercado Pago confirma la puja en pesos. Hasta ese momento el reloj no comienza.",
+    title: "Ofertá sin pagar",
+    copy: "Tu oferta entra de inmediato. No se cobra nada mientras la subasta está abierta.",
   },
   {
-    title: "Ganalo en 72 horas",
-    copy: "Si seguís primero al cierre, el lugar queda bloqueado para tu marca.",
+    title: "Pagá sólo si ganás",
+    copy: "Al cierre te enviamos un link de Mercado Pago válido por 24 horas. Si vence, el lugar vuelve a subasta.",
   },
 ];
 
 export function AuctionExperience({ initialState }: { initialState: AuctionState }) {
   const [state, setState] = useState(initialState);
   const [selectedId, setSelectedId] = useState(
-    initialState.spots.find((spot) => spot.status !== "LOCKED")?.id ?? initialState.spots[0]?.id,
+    initialState.spots.find((spot) => spot.status === "AVAILABLE" || spot.status === "ACTIVE")?.id ?? initialState.spots[0]?.id,
   );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
@@ -61,7 +61,7 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
   );
 
   function openSpot(spot: PublicSpot) {
-    if (spot.status === "LOCKED") return;
+    if (spot.status === "LOCKED" || spot.status === "AWAITING_PAYMENT") return;
     setSelectedId(spot.id);
     setDialogOpen(true);
   }
@@ -101,7 +101,7 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
           Tu marca, en el <em>centro.</em>
         </h1>
         <p className="hero-copy">
-          Elegí un lugar real en la pancarta principal, ofertá en pesos y seguí la subasta durante 72 horas.
+          Elegí un lugar real en la pancarta, ofertá sin pagar y seguí la subasta durante 72 horas.
         </p>
         <div className="metric-row" aria-label="Estado actual de la subasta">
           <div className="metric">
@@ -126,18 +126,19 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
             <h2 id="auction-title">Elegí exactamente dónde querés estar.</h2>
           </div>
           <p className="auction-head-copy">
-            Todos los lugares tienen la misma superficie visual para comparar fácil. Hacé click en uno y ofertá sin perder el contexto.
+            El mapa respeta la posición y proporción de cada espacio. Hacé click exactamente donde querés ver tu marca.
           </p>
         </div>
 
-        <div className="spot-grid">
+        <div className="banner-map" aria-label="Mapa real de lugares en la pancarta">
+          <div className="banner-stage-copy" aria-hidden="true"><strong>STARTUP<br />DAY</strong><span>2026 · Buenos Aires</span></div>
           {state.spots.map((spot) => (
             <SpotCard key={spot.id} spot={spot} now={now} onSelect={openSpot} />
           ))}
         </div>
         <div className="auction-legend">
-          <span>La subasta de cada lugar comienza con su primer pago aprobado.</span>
-          <span>Oferta superada = devolución automática al medio de pago.</span>
+          <span>La primera oferta inicia el reloj de 72 horas. No se cobra al ofertar.</span>
+          <span>El ganador recibe por email un link de pago válido por 24 horas.</span>
         </div>
       </section>
 
@@ -169,7 +170,7 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
         </div>
       </footer>
 
-      {selectedSpot && selectedSpot.status !== "LOCKED" && (
+      {selectedSpot && (selectedSpot.status === "AVAILABLE" || selectedSpot.status === "ACTIVE") && (
         <button
           className="floating-bid-tab"
           type="button"
@@ -183,7 +184,7 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
         </button>
       )}
 
-      {dialogOpen && selectedSpot && (
+      {dialogOpen && selectedSpot && (selectedSpot.status === "AVAILABLE" || selectedSpot.status === "ACTIVE") && (
         <BidDialog
           spot={selectedSpot}
           onClose={() => setDialogOpen(false)}
@@ -203,21 +204,23 @@ function SpotCard({
   now: number;
   onSelect: (spot: PublicSpot) => void;
 }) {
-  const locked = spot.status === "LOCKED";
-  const stateLabel = locked
+  const unavailable = spot.status === "LOCKED" || spot.status === "AWAITING_PAYMENT";
+  const stateLabel = spot.status === "LOCKED"
     ? "Cerrada"
+    : spot.status === "AWAITING_PAYMENT"
+      ? "Esperando pago"
     : spot.status === "ACTIVE"
       ? formatCountdown(spot.endsAt, now)
       : "Disponible";
 
   return (
     <button
-      className={`spot-card spot-card--${spot.tone}${locked ? " spot-card--locked" : ""}`}
+      className={`banner-slot banner-slot--${spot.id} spot-card spot-card--${spot.tone}${unavailable ? " spot-card--locked" : ""}`}
       type="button"
       onClick={() => onSelect(spot)}
-      disabled={locked}
+      disabled={unavailable}
       data-testid={`spot-card-${spot.id}`}
-      aria-label={locked ? `${spot.placement}, subasta cerrada` : `Ofertar por ${spot.placement}`}
+      aria-label={unavailable ? `${spot.placement}, ${stateLabel}` : `Ofertar por ${spot.placement}`}
     >
       <span className="spot-card-top">
         <span>{spot.tier} · {spot.sizeLabel}</span>
@@ -250,6 +253,8 @@ function BidDialog({
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [company, setCompany] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -269,19 +274,20 @@ function BidDialog({
         }),
       });
       const payload = (await response.json()) as {
-        checkoutUrl?: string;
+        bidId?: string;
         error?: { message?: string };
       };
-      if (!response.ok || !payload.checkoutUrl) {
-        throw new Error(payload.error?.message ?? "No pudimos iniciar el checkout.");
+      if (!response.ok || !payload.bidId) {
+        throw new Error(payload.error?.message ?? "No pudimos registrar la oferta.");
       }
       await onStateRefresh();
-      window.location.assign(payload.checkoutUrl);
+      setConfirmed(true);
+      setSubmitting(false);
     } catch (submissionError) {
       setError(
         submissionError instanceof Error
           ? submissionError.message
-          : "No pudimos iniciar el checkout.",
+          : "No pudimos registrar la oferta.",
       );
       setSubmitting(false);
     }
@@ -304,10 +310,16 @@ function BidDialog({
             {spot.sizeLabel}. Mínimo actual: <strong>{formatArs(spot.minimumBidCents)}</strong>.
           </p>
         </div>
-        <form className="bid-form" onSubmit={submit}>
+        {confirmed ? <div className="bid-confirmed" data-testid="bid-confirmed">
+          <span aria-hidden="true">✓</span>
+          <h3>Oferta registrada</h3>
+          <p>No pagaste nada ahora. Si tu oferta queda primera al cierre, vas a recibir por email un link de Mercado Pago válido durante 24 horas.</p>
+          <button className="button button--dark" type="button" onClick={onClose}>Seguir la subasta</button>
+        </div> : <form className="bid-form" onSubmit={submit}>
+          <BrandPreview spot={spot} company={company} />
           <label className="field">
             <span>Marca o empresa</span>
-            <input name="company" placeholder="Ej. Prisma Labs" autoComplete="organization" required minLength={2} maxLength={80} />
+            <input name="company" value={company} onChange={(event)=>setCompany(event.target.value)} placeholder="Ej. Prisma Labs" autoComplete="organization" required minLength={2} maxLength={80} />
           </label>
           <label className="field">
             <span>Tu oferta</span>
@@ -323,7 +335,7 @@ function BidDialog({
                 required
               />
             </span>
-            <small>La API vuelve a validar el mínimo antes de crear el checkout.</small>
+            <small>La oferta se valida y queda activa sin iniciar ningún cobro.</small>
           </label>
           <label className="field">
             <span>Email de contacto</span>
@@ -331,15 +343,23 @@ function BidDialog({
           </label>
           {error && <p className="form-error" role="alert">{error}</p>}
           <button className="button button--red dialog-submit" type="submit" disabled={submitting}>
-            {submitting ? "Abriendo checkout…" : "Ir al checkout seguro"} <span aria-hidden="true">↗</span>
+            {submitting ? "Registrando oferta…" : "Confirmar oferta sin pagar"} <span aria-hidden="true">↗</span>
           </button>
           <p className="form-note">
-            La oferta lidera cuando Mercado Pago la aprueba. Si otra marca te supera, iniciamos la devolución automática del pago.
+            Si ganás, el link de Mercado Pago llega a este email al cierre. Tendrás 24 horas para completar el pago.
           </p>
-        </form>
+        </form>}
       </section>
     </div>
   );
+}
+
+function BrandPreview({spot,company}:{spot:PublicSpot;company:string}) {
+  const mark=(company.trim()||"TU MARCA").slice(0,18);
+  return <div className="brand-preview" aria-label={`Vista previa de ${mark} en ${spot.placement}`}>
+    <div className="brand-preview-head"><span>Vista previa en vivo</span><strong>{spot.placement}</strong></div>
+    <div className="preview-map"><span className="preview-event">STARTUP DAY</span><span className={`preview-logo preview-logo--${spot.id}`}>{mark}</span></div>
+  </div>;
 }
 
 function formatCountdown(endsAt: string | null, now: number) {

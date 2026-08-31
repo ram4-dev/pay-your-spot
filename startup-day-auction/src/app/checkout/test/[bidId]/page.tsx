@@ -33,12 +33,12 @@ export default async function TestCheckoutPage({
       <section className="payment-card">
         <div className="payment-mark">MP</div>
         <p className="eyebrow">Checkout de prueba E2E</p>
-        <h1>Confirmar oferta</h1>
+        <h1>Completar pago ganador</h1>
         <div className="test-checkout-details">
           <strong>{bid.company}</strong>
           <span>{spot.placement} · {formatArs(bid.amountCents)}</span>
         </div>
-        <p>Esta pantalla sólo existe cuando el proveedor de pruebas está habilitado explícitamente.</p>
+        <p>La subasta ya terminó. Esta pantalla simula el link enviado por email al ganador.</p>
         <TestCheckoutButton bidId={bid.id} />
       </section>
     </main>

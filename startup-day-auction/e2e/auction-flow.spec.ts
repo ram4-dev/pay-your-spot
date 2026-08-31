@@ -1,98 +1,40 @@
-import { expect, test } from "@playwright/test";
+import { expect,test } from "@playwright/test";
 
-test("runs the paid auction E2E, refunds the outbid leader, and locks after expiry", async ({
-  page,
-  request,
-}) => {
+test("bids without charging, emails the winner checkout, and locks only after payment",async({page,request})=>{
   await page.goto("/");
+  const cards=page.locator("[data-testid^=spot-card-]");await expect(cards).toHaveCount(12);
+  const boxes=await cards.evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return {width:Math.round(r.width),height:Math.round(r.height)}}));
+  expect(new Set(boxes.map(b=>`${b.width}x${b.height}`)).size).toBeGreaterThan(4);
+  const corner=await page.getByTestId("spot-card-corner-a").boundingBox(),center=await page.getByTestId("spot-card-center-a").boundingBox();
+  expect(corner!.y).toBeLessThan(center!.y);expect(corner!.x).toBeLessThan(center!.x);
 
-  await expect(page.getByRole("heading", { name: /Tu marca, en el centro/ })).toBeVisible();
-  const spotCards = page.locator("[data-testid^=spot-card-]");
-  await expect(spotCards).toHaveCount(12);
-  await expect(page.getByTestId("active-auctions")).toHaveText("0");
-  await expect(page.getByTestId("total-raised")).toContainText("0");
+  await placeBid(page,"First E2E","first@example.com","150000");
+  await expect(page.getByTestId("active-auctions")).toHaveText("1");await expect(page.getByTestId("total-raised")).toContainText("0");
+  await placeBid(page,"Winner E2E","winner@example.com","155000");
+  await expect(page.getByTestId("spot-card-new-spot")).toContainText("Winner E2E");
 
-  const boxes = await spotCards.evaluateAll((cards) =>
-    cards.map((card) => {
-      const box = card.getBoundingClientRect();
-      return { width: Math.round(box.width), height: Math.round(box.height) };
-    }),
-  );
-  expect(new Set(boxes.map((box) => box.height)).size).toBe(1);
-  expect(new Set(boxes.map((box) => box.width)).size).toBe(1);
+  let checkoutUrl="";
+  await expect.poll(async()=>{
+    const audit=await (await request.get("/api/test/audit?spotId=new-spot")).json() as {bids:Array<{company:string;status:string;checkoutUrl:string|null;paymentLinkSentAt:string|null}>};
+    const winner=audit.bids.find(b=>b.company==="Winner E2E");checkoutUrl=winner?.checkoutUrl??"";return {status:winner?.status,sent:Boolean(winner?.paymentLinkSentAt),url:Boolean(checkoutUrl)};
+  },{timeout:15_000}).toEqual({status:"PAYMENT_PENDING",sent:true,url:true});
 
-  await placeBid(page, "First E2E", "first-e2e@example.com", "150000");
-  await expect(page.getByRole("heading", { name: "Confirmar oferta" })).toBeVisible();
-  await page.getByRole("button", { name: "Aprobar pago de prueba" }).click();
-  await expect(page.getByRole("heading", { name: "Oferta confirmada" })).toBeVisible();
-  await page.getByRole("link", { name: "Volver a la subasta" }).click();
-
-  await expect(page.getByTestId("active-auctions")).toHaveText("1");
-  await expect(page.getByTestId("total-raised")).toContainText("150.000");
-  await expect(page.getByTestId("spot-card-new-spot")).toContainText("First E2E");
-
-  await placeBid(page, "Second E2E", "second-e2e@example.com", "155000");
-  await page.getByRole("button", { name: "Aprobar pago de prueba" }).click();
-  await expect(page.getByRole("heading", { name: "Oferta confirmada" })).toBeVisible();
-  await page.getByRole("link", { name: "Volver a la subasta" }).click();
-
-  await expect(page.getByTestId("active-auctions")).toHaveText("1");
-  await expect(page.getByTestId("total-raised")).toContainText("155.000");
-  await expect(page.getByTestId("spot-card-new-spot")).toContainText("Second E2E");
-
-  const auditResponse = await request.get("/api/test/audit?spotId=new-spot");
-  expect(auditResponse.ok()).toBe(true);
-  const audit = (await auditResponse.json()) as {
-    bids: Array<{ company: string; status: string; refundId: string | null }>;
-  };
-  expect(audit.bids).toEqual([
-    expect.objectContaining({ company: "First E2E", status: "REFUNDED" }),
-    expect.objectContaining({ company: "Second E2E", status: "LEADING" }),
-  ]);
-  expect(audit.bids[0].refundId).toMatch(/^test-refund-/);
-
-  await expect
-    .poll(async () => {
-      const response = await request.get("/api/auction");
-      const state = (await response.json()) as {
-        metrics: { activeAuctions: number; lockedSpots: number };
-      };
-      return {
-        activeAuctions: state.metrics.activeAuctions,
-        lockedSpots: state.metrics.lockedSpots,
-      };
-    }, { timeout: 15_000 })
-    .toEqual({ activeAuctions: 0, lockedSpots: 1 });
-
-  await page.reload();
-  await expect(page.getByTestId("spot-card-new-spot")).toBeDisabled();
-  await expect(page.getByTestId("spot-card-new-spot")).toContainText("Cerrada");
-  await expect(page.getByTestId("spot-card-new-spot")).toContainText("Second E2E");
-  await page.screenshot({ path: "test-results/auction-e2e-final.png", fullPage: true });
+  await page.goto(checkoutUrl);await expect(page.getByRole("heading",{name:"Completar pago ganador"})).toBeVisible();
+  await page.getByRole("button",{name:"Aprobar pago de prueba"}).click();await expect(page.getByRole("heading",{name:"Oferta confirmada"})).toBeVisible();
+  await page.getByRole("link",{name:"Volver a la subasta"}).click();
+  await expect(page.getByTestId("total-raised")).toContainText("155.000");await expect(page.getByTestId("spot-card-new-spot")).toBeDisabled();
 });
 
-test("keeps the floating contextual bid panel usable on mobile", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
-  await page.getByTestId("spot-card-top-band").click();
-  await expect(page.getByTestId("bid-dialog")).toContainText("Franja superior");
-  await page.getByRole("button", { name: "Cerrar" }).click();
-  await expect(page.getByTestId("floating-bid-tab")).toContainText("Franja superior");
-  await page.getByTestId("floating-bid-tab").click();
-  await expect(page.getByTestId("bid-dialog")).toBeVisible();
+test("shows an animated contextual brand preview and floating action on mobile",async({page})=>{
+  await page.setViewportSize({width:390,height:844});await page.goto("/");
+  await page.getByTestId("spot-card-top-band").click();const dialog=page.getByTestId("bid-dialog");
+  await dialog.getByLabel("Marca o empresa").fill("Prisma Labs");await expect(dialog.getByLabel(/Vista previa de Prisma Labs/)).toContainText("Prisma Labs");
+  await page.getByRole("button",{name:"Cerrar"}).click();await expect(page.getByTestId("floating-bid-tab")).toContainText("Franja superior");
 });
 
-async function placeBid(
-  page: import("@playwright/test").Page,
-  company: string,
-  email: string,
-  amount: string,
-) {
-  await page.getByTestId("spot-card-new-spot").click();
-  const dialog = page.getByTestId("bid-dialog");
-  await expect(dialog).toContainText("Módulo emergente");
-  await dialog.getByLabel("Marca o empresa").fill(company);
-  await dialog.getByLabel("Tu oferta").fill(amount);
-  await dialog.getByLabel("Email de contacto").fill(email);
-  await dialog.getByRole("button", { name: /Ir al checkout seguro/ }).click();
+async function placeBid(page:import("@playwright/test").Page,company:string,email:string,amount:string){
+  await page.getByTestId("spot-card-new-spot").click();const dialog=page.getByTestId("bid-dialog");
+  await dialog.getByLabel("Marca o empresa").fill(company);await dialog.getByLabel("Tu oferta").fill(amount);await dialog.getByLabel("Email de contacto").fill(email);
+  await dialog.getByRole("button",{name:/Confirmar oferta sin pagar/}).click();await expect(page.getByTestId("bid-confirmed")).toBeVisible();
+  await dialog.getByRole("button",{name:"Seguir la subasta"}).click();
 }

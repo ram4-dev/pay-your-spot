@@ -17,7 +17,8 @@ export async function GET(request: Request) {
   const bids = getAuctionDatabase()
     .prepare(`
       SELECT bidder_company AS company, amount_cents AS amountCents, status,
-        refund_id AS refundId, refund_reason AS refundReason
+        refund_id AS refundId, refund_reason AS refundReason,
+        checkout_url AS checkoutUrl, payment_link_sent_at AS paymentLinkSentAt
       FROM bids WHERE spot_id = ? ORDER BY created_at ASC
     `)
     .all(spotId);
