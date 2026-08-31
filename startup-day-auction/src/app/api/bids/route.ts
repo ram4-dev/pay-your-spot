@@ -1,20 +1,23 @@
 import { z } from "zod";
 
-import { getAuctionDatabase } from "@/lib/auction/database";
 import { MAX_LOGO_BYTES,MAX_LOGO_DATA_URL_LENGTH,MAX_LOGO_MB } from "@/lib/auction/logo";
-import { AuctionError, getAuctionState, placeBid } from "@/lib/auction/service";
+import { AuctionError,getRuntimeAuctionState,placeRuntimeBid } from "@/lib/auction/runtime-service";
+import { removeUploadedLogo,validateUploadedLogo } from "@/lib/auction/supabase-storage";
 
 export const runtime = "nodejs";
 
 const bidSchema = z.object({
   spotId: z.string().min(1).max(80),
   logoFileName: z.string().trim().min(1).max(180),
-  logoDataUrl: z.string().max(MAX_LOGO_DATA_URL_LENGTH),
+  logoDataUrl: z.string().max(MAX_LOGO_DATA_URL_LENGTH).optional(),
+  logoStoragePath:z.string().max(100).optional(),
+  logoMimeType:z.enum(["image/png","image/jpeg"]).optional(),
   email: z.email().max(254),
   amountArs: z.number().int().positive().max(100_000_000),
 });
 
 export async function POST(request: Request) {
+  let uploadedPath:string|undefined;
   try {
     const parsed = bidSchema.safeParse(await request.json());
     if (!parsed.success) {
@@ -23,23 +26,31 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    const logo=parseLogo(parsed.data.logoDataUrl);
-    if(!logo)return Response.json({error:{code:"INVALID_LOGO",message:`Subí un logo PNG o JPG de hasta ${MAX_LOGO_MB} MB.`}},{status:400});
+    const direct=Boolean(process.env.POSTGRES_URL);
+    const logo=direct?null:parseLogo(parsed.data.logoDataUrl??"");
+    uploadedPath=parsed.data.logoStoragePath;
+    if(!direct&&!logo)return Response.json({error:{code:"INVALID_LOGO",message:`Subí un logo PNG o JPG de hasta ${MAX_LOGO_MB} MB.`}},{status:400});
+    if(direct&&(!uploadedPath||!parsed.data.logoMimeType||!await validateUploadedLogo(uploadedPath,parsed.data.logoMimeType))){
+      if(uploadedPath)await removeUploadedLogo(uploadedPath).catch(()=>undefined);
+      return Response.json({error:{code:"INVALID_LOGO",message:`Subí un logo PNG o JPG de hasta ${MAX_LOGO_MB} MB.`}},{status:400});
+    }
     const company=brandLabel(parsed.data.logoFileName,parsed.data.email);
 
-    const bid = placeBid(getAuctionDatabase(),
+    const bid = await placeRuntimeBid(
       {
         spotId: parsed.data.spotId,
         company,
         email: parsed.data.email,
         amountCents: parsed.data.amountArs * 100,
-        logoBytes:logo.bytes,
-        logoMimeType:logo.mimeType,
+        logoBytes:logo?.bytes,
+        logoStoragePath:uploadedPath,
+        logoMimeType:parsed.data.logoMimeType??logo!.mimeType,
       },
     );
-    const spot=getAuctionState(getAuctionDatabase()).spots.find(candidate=>candidate.id===bid.spotId)!;
+    const spot=(await getRuntimeAuctionState()).spots.find(candidate=>candidate.id===bid.spotId)!;
     return Response.json({bidId:bid.id,status:bid.status,endsAt:spot.endsAt}, { status: 201 });
   } catch (error) {
+    if(uploadedPath)await removeUploadedLogo(uploadedPath).catch(()=>undefined);
     if (error instanceof AuctionError) {
       return Response.json(
         { error: { code: error.code, message: error.message } },

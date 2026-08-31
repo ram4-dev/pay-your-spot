@@ -11,10 +11,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "npm run build && playwright test"
+    "test:e2e": "npm run build && playwright test",
+    "db:migrate": "node scripts/migrate-postgres.mjs",
+    "db:import-sqlite": "node scripts/migrate-sqlite-data.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.4",
     "next": "16.3.3",
+    "postgres": "^3.4.9",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "zod": "^4.5.2"

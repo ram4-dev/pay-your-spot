@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { createClient } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 
 import { formatArs } from "@/lib/auction/format";
@@ -292,13 +293,14 @@ function BidDialog({
   const [error, setError] = useState<string | null>(null);
   const [logoDataUrl,setLogoDataUrl]=useState<string|null>(null);
   const [logoFileName,setLogoFileName]=useState("");
+  const [logoFile,setLogoFile]=useState<File|null>(null);
   const [confirmed, setConfirmed] = useState(false);
 
   function selectLogo(event:ChangeEvent<HTMLInputElement>){
-    const file=event.target.files?.[0];setError(null);setLogoDataUrl(null);setLogoFileName("");
+    const file=event.target.files?.[0];setError(null);setLogoDataUrl(null);setLogoFileName("");setLogoFile(null);
     if(!file)return;
     if(!["image/png","image/jpeg"].includes(file.type)||file.size>MAX_LOGO_BYTES){event.target.value="";setError(`Subí un logo PNG o JPG de hasta ${MAX_LOGO_MB} MB.`);return;}
-    const reader=new FileReader();reader.onload=()=>{if(typeof reader.result==="string"){setLogoDataUrl(reader.result);setLogoFileName(file.name);}};reader.onerror=()=>setError("No pudimos leer ese archivo.");reader.readAsDataURL(file);
+    const reader=new FileReader();reader.onload=()=>{if(typeof reader.result==="string"){setLogoDataUrl(reader.result);setLogoFileName(file.name);setLogoFile(file);}};reader.onerror=()=>setError("No pudimos leer ese archivo.");reader.readAsDataURL(file);
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -308,14 +310,26 @@ function BidDialog({
     const data = new FormData(event.currentTarget);
 
     try {
-      if(!logoDataUrl||!logoFileName)throw new Error("Subí un logo PNG o JPG.");
+      if(!logoDataUrl||!logoFileName||!logoFile)throw new Error("Subí un logo PNG o JPG.");
+      const uploadResponse=await fetch("/api/logo-uploads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fileName:logoFile.name,mimeType:logoFile.type,size:logoFile.size})});
+      const uploadPayload=await uploadResponse.json() as {directUpload?:boolean;path?:string;token?:string;error?:{message?:string}};
+      if(!uploadResponse.ok)throw new Error(uploadPayload.error?.message??"No pudimos preparar la carga del logo.");
+      if(uploadPayload.directUpload){
+        if(!uploadPayload.path||!uploadPayload.token)throw new Error("No pudimos preparar la carga del logo.");
+        const url=process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY??process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        if(!url||!key)throw new Error("La carga de logos no está configurada.");
+        const {error:uploadError}=await createClient(url,key).storage.from("auction-logos").uploadToSignedUrl(uploadPayload.path,uploadPayload.token,logoFile,{contentType:logoFile.type});
+        if(uploadError)throw new Error("No pudimos subir el logo. Probá nuevamente.");
+      }
       const response = await fetch("/api/bids", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           spotId: spot.id,
           logoFileName,
-          logoDataUrl,
+          logoDataUrl:uploadPayload.directUpload?undefined:logoDataUrl,
+          logoStoragePath:uploadPayload.path,
+          logoMimeType:logoFile.type,
           email: data.get("email"),
           amountArs: Number(data.get("amount")),
         }),

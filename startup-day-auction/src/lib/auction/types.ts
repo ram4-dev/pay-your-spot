@@ -1,6 +1,6 @@
 export type SpotStatus = "AVAILABLE" | "ACTIVE" | "RESERVED";
 export type BidStatus = "LEADING" | "OUTBID" | "RESERVED" | "CONTACTED" | "FAILED";
-export type CreateBidInput = { spotId:string; company:string; email:string; amountCents:number; logoBytes:Uint8Array; logoMimeType:"image/png"|"image/jpeg" };
+export type CreateBidInput = { spotId:string; company:string; email:string; amountCents:number; logoBytes?:Uint8Array; logoStoragePath?:string; logoMimeType:"image/png"|"image/jpeg" };
 export type PublicBid = { id:string; rank:number; company:string; logoUrl:string|null; amountCents:number; status:BidStatus; createdAt:string };
 
 export type PublicSpot = {
