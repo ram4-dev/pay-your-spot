@@ -5,6 +5,16 @@ test("bids without charging, emails the winner checkout, and locks only after pa
   const cards=page.locator("[data-testid^=spot-card-]");await expect(cards).toHaveCount(12);
   const boxes=await cards.evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return {width:Math.round(r.width),height:Math.round(r.height)}}));
   expect(new Set(boxes.map(b=>`${b.width}x${b.height}`)).size).toBeGreaterThan(4);
+  const overlapCount=await cards.evaluateAll(nodes=>{
+    const boxes=nodes.map(node=>node.getBoundingClientRect());let overlaps=0;
+    for(let i=0;i<boxes.length;i++) for(let j=i+1;j<boxes.length;j++) {
+      const width=Math.min(boxes[i].right,boxes[j].right)-Math.max(boxes[i].left,boxes[j].left);
+      const height=Math.min(boxes[i].bottom,boxes[j].bottom)-Math.max(boxes[i].top,boxes[j].top);
+      if(width>0&&height>0) overlaps++;
+    }
+    return overlaps;
+  });
+  expect(overlapCount).toBe(0);
   const corner=await page.getByTestId("spot-card-corner-a").boundingBox(),center=await page.getByTestId("spot-card-center-a").boundingBox();
   expect(corner!.y).toBeLessThan(center!.y);expect(corner!.x).toBeLessThan(center!.x);
 
