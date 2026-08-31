@@ -1,7 +1,10 @@
 import { afterEach,beforeEach,describe,expect,it } from "vitest";
+import { mkdtempSync,rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { DEFAULT_AUCTION_DURATION_MS,DEFAULT_PAYMENT_WINDOW_MS } from "./constants";
 import { createAuctionDatabase,type AuctionDatabase } from "./database";
-import { applyProviderPayment,closeExpiredAuctions,getAuctionState,getInternalBid,placeBid,reopenExpiredPaymentWindows } from "./service";
+import { applyProviderPayment,closeExpiredAuctions,getAuctionState,getInternalBid,getTrackedBid,placeBid,reopenExpiredPaymentWindows } from "./service";
 
 const START=new Date("2026-08-29T15:00:00.000Z");
 const input=(company="Prisma",amountCents=15_000_000)=>({spotId:"new-spot",company,email:`${company.toLowerCase()}@example.com`,amountCents});
@@ -24,6 +27,7 @@ describe("deferred-payment auction",()=>{
     const second=placeBid(db,input("Second",15_500_000),new Date(START.getTime()+1000));
     expect(getInternalBid(db,first.id)?.status).toBe("OUTBID"); expect(getInternalBid(db,second.id)?.status).toBe("LEADING");
     expect(getAuctionState(db).spots.find(s=>s.id==="new-spot")?.sponsor).toBe("Second");
+    expect(getAuctionState(db).spots.find(s=>s.id==="new-spot")?.ranking.map(b=>[b.company,b.rank])).toEqual([["Second",1],["First",2]]);
   });
 
   it("moves the winner into an exact 24-hour payment window",()=>{
@@ -52,5 +56,16 @@ describe("deferred-payment auction",()=>{
     const bid=placeBid(db,input(),START),closing=new Date(START.getTime()+DEFAULT_AUCTION_DURATION_MS);closeExpiredAuctions(db,closing);
     const late=new Date(closing.getTime()+DEFAULT_PAYMENT_WINDOW_MS+1),result=applyProviderPayment(db,approved(bid.id,bid.amountCents),late);
     expect(result.outcome).toBe("refund-required");expect(getInternalBid(db,bid.id)?.refundReason).toBe("PAYMENT_WINDOW_EXPIRED");
+  });
+
+  it("persists the bid, ranking, and email relationship after reopening SQLite",()=>{
+    const directory=mkdtempSync(join(tmpdir(),"startup-day-state-")),filename=join(directory,"auction.sqlite");
+    const firstDatabase=createAuctionDatabase(filename);
+    const bid=placeBid(firstDatabase,input("Persistent"),START); firstDatabase.close();
+    const reopened=createAuctionDatabase(filename);
+    const tracked=getTrackedBid(reopened,bid.id,START),spot=getAuctionState(reopened,START).spots.find(candidate=>candidate.id==="new-spot")!;
+    expect(tracked).toMatchObject({company:"Persistent",maskedEmail:"p•••••@example.com",status:"LEADING",rank:1});
+    expect(spot.ranking).toEqual([expect.objectContaining({company:"Persistent",rank:1})]);
+    reopened.close(); rmSync(directory,{recursive:true,force:true});
   });
 });

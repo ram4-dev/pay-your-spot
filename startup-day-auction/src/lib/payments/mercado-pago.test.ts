@@ -25,6 +25,7 @@ const bid: InternalBid = {
   paymentStatus: null,
   refundId: null,
   refundReason: null,
+  createdAt: "2026-08-29T15:00:00.000Z",
 };
 
 describe("MercadoPagoProvider", () => {

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { formatArs } from "@/lib/auction/format";
-import type { AuctionState, PublicSpot } from "@/lib/auction/types";
+import type { AuctionState, BidStatus, PublicSpot, TrackedBid } from "@/lib/auction/types";
 
 const steps = [
   {
@@ -27,6 +27,7 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
   );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [trackedBids, setTrackedBids] = useState<TrackedBid[]>([]);
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/auction", { cache: "no-store" });
@@ -41,6 +42,21 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
       window.clearInterval(clockTimer);
     };
   }, [refresh]);
+
+  const refreshTrackedBids = useCallback(async () => {
+    const ids = JSON.parse(window.localStorage.getItem("startup-day-bids") ?? "[]") as string[];
+    const responses = await Promise.all(ids.slice(-20).reverse().map(async (id) => {
+      const response = await fetch(`/api/bids/${encodeURIComponent(id)}`, { cache: "no-store" });
+      return response.ok ? await response.json() as TrackedBid : null;
+    }));
+    setTrackedBids(responses.filter((bid): bid is TrackedBid => bid !== null));
+  }, []);
+
+  useEffect(() => {
+    const initial = window.setTimeout(() => void refreshTrackedBids(), 0);
+    const timer = window.setInterval(() => void refreshTrackedBids(), 4_000);
+    return () => { window.clearTimeout(initial); window.clearInterval(timer); };
+  }, [refreshTrackedBids]);
 
   useEffect(() => {
     if (!dialogOpen) return;
@@ -66,6 +82,12 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
     setDialogOpen(true);
   }
 
+  function rememberBid(bidId: string) {
+    const ids = JSON.parse(window.localStorage.getItem("startup-day-bids") ?? "[]") as string[];
+    window.localStorage.setItem("startup-day-bids", JSON.stringify([...new Set([...ids, bidId])]));
+    void refreshTrackedBids();
+  }
+
   const nearestEnd = state.spots
     .filter((spot) => spot.status === "ACTIVE" && spot.endsAt)
     .map((spot) => spot.endsAt!)
@@ -80,6 +102,8 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
           </a>
           <div className="nav-links">
             <a href="#subasta">Subasta en vivo</a>
+            <a href="#ranking">Ranking</a>
+            <a href="#mis-ofertas">Mis ofertas</a>
             <a href="#como-funciona">Cómo funciona</a>
           </div>
           <button
@@ -140,7 +164,10 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
           <span>La primera oferta inicia el reloj de 72 horas. No se cobra al ofertar.</span>
           <span>El ganador recibe por email un link de pago válido por 24 horas.</span>
         </div>
+        {selectedSpot && <AuctionRanking spot={selectedSpot} spots={state.spots} now={now} onSelect={setSelectedId} />}
       </section>
+
+      <MyBids bids={trackedBids} now={now} />
 
       <section className="process" id="como-funciona" aria-labelledby="process-title">
         <p className="eyebrow">Proceso transparente</p>
@@ -189,6 +216,7 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
           spot={selectedSpot}
           onClose={() => setDialogOpen(false)}
           onStateRefresh={refresh}
+          onBidRegistered={rememberBid}
         />
       )}
     </main>
@@ -246,10 +274,12 @@ function BidDialog({
   spot,
   onClose,
   onStateRefresh,
+  onBidRegistered,
 }: {
   spot: PublicSpot;
   onClose: () => void;
   onStateRefresh: () => Promise<void>;
+  onBidRegistered: (bidId:string) => void;
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -281,6 +311,7 @@ function BidDialog({
         throw new Error(payload.error?.message ?? "No pudimos registrar la oferta.");
       }
       await onStateRefresh();
+      onBidRegistered(payload.bidId);
       setConfirmed(true);
       setSubmitting(false);
     } catch (submissionError) {
@@ -352,6 +383,48 @@ function BidDialog({
       </section>
     </div>
   );
+}
+
+function AuctionRanking({spot,spots,now,onSelect}:{spot:PublicSpot;spots:PublicSpot[];now:number;onSelect:(id:string)=>void}) {
+  return <section className="live-ranking" id="ranking" aria-labelledby="ranking-title">
+    <div className="ranking-head">
+      <div><p className="eyebrow">Estado persistido · actualización en vivo</p><h3 id="ranking-title">Ranking de la subasta</h3></div>
+      <label className="ranking-select"><span>Ver lugar</span><select value={spot.id} onChange={event=>onSelect(event.target.value)}>{spots.map(candidate=><option key={candidate.id} value={candidate.id}>{candidate.placement}</option>)}</select></label>
+    </div>
+    <div className="ranking-summary">
+      <span className={`auction-state auction-state--${spot.status.toLowerCase()}`}>{spotStatusLabel(spot.status)}</span>
+      <strong>{spot.ranking.length} {spot.ranking.length===1?"oferta":"ofertas"}</strong>
+      <span>{spot.status==="ACTIVE"?`Cierra en ${formatCountdown(spot.endsAt,now)}`:spot.status==="AWAITING_PAYMENT"?"Ganador notificado por email":spot.status==="LOCKED"?"Lugar adjudicado":"Todavía no comenzó"}</span>
+    </div>
+    {spot.ranking.length ? <ol className="ranking-list" data-testid="ranking-list">
+      {spot.ranking.map(bid=><li key={`${bid.createdAt}-${bid.rank}`} className={bid.rank===1?"ranking-row ranking-row--leader":"ranking-row"}>
+        <span className="rank-number">#{bid.rank}</span><span className="rank-brand"><strong>{bid.company}</strong><small>{bid.rank===1?"Liderando":"Oferta superada"}</small></span><strong className="rank-amount">{formatArs(bid.amountCents)}</strong><span className="rank-status">{bidStatusLabel(bid.status)}</span>
+      </li>)}
+    </ol> : <div className="ranking-empty"><strong>Sin ofertas todavía</strong><span>La primera oferta abre esta subasta durante 72 horas.</span></div>}
+  </section>;
+}
+
+function MyBids({bids,now}:{bids:TrackedBid[];now:number}) {
+  return <section className="my-bids" id="mis-ofertas" aria-labelledby="my-bids-title">
+    <div className="my-bids-head"><div><p className="eyebrow">Seguimiento privado en este dispositivo</p><h2 id="my-bids-title">Mis ofertas</h2></div><p>El email nunca aparece en el ranking público. Acá podés verificar a qué correo está vinculada cada oferta y seguir su estado.</p></div>
+    {bids.length ? <div className="my-bids-grid" data-testid="my-bids-list">{bids.map(bid=><article className="my-bid" key={bid.id}>
+      <div className="my-bid-top"><span className="auction-state">{bidStatusLabel(bid.status)}</span><span>{bid.rank?`#${bid.rank} en el ranking`:"Ronda finalizada"}</span></div>
+      <h3>{bid.placement}</h3><strong className="my-bid-amount">{formatArs(bid.amountCents)}</strong>
+      <dl><div><dt>Marca</dt><dd>{bid.company}</dd></div><div><dt>Email vinculado</dt><dd>{bid.maskedEmail}</dd></div><div><dt>Estado</dt><dd>{trackedBidExplanation(bid,now)}</dd></div></dl>
+      {bid.status==="PAYMENT_PENDING"&&bid.checkoutUrl&&<a className="button button--red" href={bid.checkoutUrl}>Pagar oferta ganadora ↗</a>}
+    </article>)}</div> : <div className="my-bids-empty"><strong>Todavía no ofertaste desde este navegador.</strong><span>Cuando confirmes una oferta va a aparecer acá, vinculada al email que ingresaste.</span></div>}
+  </section>;
+}
+
+function bidStatusLabel(status:BidStatus) { return ({LEADING:"Liderando",OUTBID:"Superada",PAYMENT_PENDING:"Esperando pago",PAID:"Pagada",PAYMENT_EXPIRED:"Pago vencido",REFUND_PENDING:"Reembolso pendiente",REFUND_FAILED:"Reembolso en revisión",REFUNDED:"Reembolsada",FAILED:"Fallida"} satisfies Record<BidStatus,string>)[status]; }
+function spotStatusLabel(status:PublicSpot["status"]) { return {AVAILABLE:"Disponible",ACTIVE:"En vivo",AWAITING_PAYMENT:"Esperando pago",LOCKED:"Adjudicada"}[status]; }
+function trackedBidExplanation(bid:TrackedBid,now:number) {
+  if(bid.status==="LEADING") return `Vas primero. La subasta cierra en ${formatCountdown(bid.endsAt,now)}.`;
+  if(bid.status==="OUTBID") return "Otra marca hizo una oferta mayor. Podés volver a ofertar.";
+  if(bid.status==="PAYMENT_PENDING") return bid.paymentLinkSentAt?`Enviamos el link al email. Vence en ${formatCountdown(bid.paymentDueAt,now)}.`:"Ganaste. Estamos preparando el link de pago para tu email.";
+  if(bid.status==="PAID") return "Pago confirmado y lugar adjudicado.";
+  if(bid.status==="PAYMENT_EXPIRED") return "El plazo de pago venció y el lugar volvió a subasta.";
+  return bidStatusLabel(bid.status);
 }
 
 function BrandPreview({spot,company}:{spot:PublicSpot;company:string}) {

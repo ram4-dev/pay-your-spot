@@ -20,8 +20,14 @@ test("bids without charging, emails the winner checkout, and locks only after pa
 
   await placeBid(page,"First E2E","first@example.com","150000");
   await expect(page.getByTestId("active-auctions")).toHaveText("1");await expect(page.getByTestId("total-raised")).toContainText("0");
+  await expect(page.getByTestId("ranking-list")).toContainText("First E2E");
+  await expect(page.getByTestId("my-bids-list")).toContainText("f••••@example.com");
   await placeBid(page,"Winner E2E","winner@example.com","155000");
   await expect(page.getByTestId("spot-card-new-spot")).toContainText("Winner E2E");
+  await expect(page.getByTestId("ranking-list").locator("li").first()).toContainText("Winner E2E");
+  await page.reload();
+  await expect(page.getByTestId("my-bids-list")).toContainText("Winner E2E");
+  await expect(page.getByTestId("my-bids-list")).toContainText("w•••••@example.com");
 
   let checkoutUrl="";
   await expect.poll(async()=>{

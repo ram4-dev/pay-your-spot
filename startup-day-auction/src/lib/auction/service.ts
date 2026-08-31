@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { getAuctionDurationMs, getPaymentWindowMs } from "./constants";
 import { type AuctionDatabase, transaction } from "./database";
-import type { AuctionState, CreateBidInput, InternalBid, ProviderPayment, PublicSpot, SpotStatus } from "./types";
+import type { AuctionState, CreateBidInput, InternalBid, ProviderPayment, PublicBid, PublicSpot, SpotStatus, TrackedBid } from "./types";
 
 type SpotRow = { id:string; placement:string; description:string; size_label:string; tier:string; tone:string; starting_amount_cents:number; increment_amount_cents:number; status:SpotStatus; started_at:string|null; ends_at:string|null; payment_due_at:string|null; locked_at:string|null; leading_bid_id:string|null; auction_round:number };
-type BidRow = { id:string; spot_id:string; bidder_company:string; bidder_email:string; amount_cents:number; status:InternalBid["status"]; payment_due_at:string|null; preference_id:string|null; checkout_url:string|null; payment_link_sent_at:string|null; email_attempts:number; next_email_at:string|null; email_failure:string|null; payment_id:string|null; payment_status:string|null; refund_id:string|null; refund_reason:string|null };
+type BidRow = { id:string; spot_id:string; bidder_company:string; bidder_email:string; amount_cents:number; status:InternalBid["status"]; payment_due_at:string|null; preference_id:string|null; checkout_url:string|null; payment_link_sent_at:string|null; email_attempts:number; next_email_at:string|null; email_failure:string|null; payment_id:string|null; payment_status:string|null; refund_id:string|null; refund_reason:string|null; created_at:string };
 
 export class AuctionError extends Error {
   constructor(public readonly code:string, message:string, public readonly status=400) { super(message); this.name="AuctionError"; }
@@ -118,8 +118,25 @@ export function getAuctionState(database:AuctionDatabase,now=new Date()):Auction
     (SELECT COUNT(*) FROM spots WHERE status='AVAILABLE') available_spots,
     (SELECT COUNT(*) FROM spots) total_spots,
     COALESCE((SELECT SUM(amount_cents) FROM bids WHERE status='PAID'),0) total_raised_cents`).get() as Record<string,number>;
-  return {generatedAt:now.toISOString(),metrics:{activeAuctions:m.active_auctions,awaitingPayment:m.awaiting_payment,lockedSpots:m.locked_spots,availableSpots:m.available_spots,totalSpots:m.total_spots,totalRaisedCents:m.total_raised_cents},spots:rows.map((r):PublicSpot=>({id:r.id,placement:r.placement,description:r.description,sizeLabel:r.size_label,tier:r.tier,tone:r.tone,status:r.status,sponsor:r.bidder_company??null,startingAmountCents:r.starting_amount_cents,currentBidCents:r.amount_cents??null,minimumBidCents:r.amount_cents===null?r.starting_amount_cents:r.amount_cents+r.increment_amount_cents,startsAt:r.started_at,endsAt:r.ends_at,paymentDueAt:r.payment_due_at,lockedAt:r.locked_at,auctionRound:r.auction_round}))};
+  return {generatedAt:now.toISOString(),metrics:{activeAuctions:m.active_auctions,awaitingPayment:m.awaiting_payment,lockedSpots:m.locked_spots,availableSpots:m.available_spots,totalSpots:m.total_spots,totalRaisedCents:m.total_raised_cents},spots:rows.map((r):PublicSpot=>({id:r.id,placement:r.placement,description:r.description,sizeLabel:r.size_label,tier:r.tier,tone:r.tone,status:r.status,sponsor:r.bidder_company??null,startingAmountCents:r.starting_amount_cents,currentBidCents:r.amount_cents??null,minimumBidCents:r.amount_cents===null?r.starting_amount_cents:r.amount_cents+r.increment_amount_cents,startsAt:r.started_at,endsAt:r.ends_at,paymentDueAt:r.payment_due_at,lockedAt:r.locked_at,auctionRound:r.auction_round,ranking:getSpotRanking(database,r)}))};
+}
+
+function getSpotRanking(database:AuctionDatabase,spot:SpotRow):PublicBid[] {
+  if(!spot.started_at) return [];
+  const rows=database.prepare(`SELECT id,bidder_company,amount_cents,status,created_at FROM bids
+    WHERE spot_id=? AND created_at>=? AND status IN ('LEADING','OUTBID','PAYMENT_PENDING','PAID')
+    ORDER BY amount_cents DESC,created_at ASC LIMIT 20`).all(spot.id,spot.started_at) as Array<{id:string;bidder_company:string;amount_cents:number;status:InternalBid["status"];created_at:string}>;
+  return rows.map((bid,index)=>({rank:index+1,company:bid.bidder_company,amountCents:bid.amount_cents,status:bid.status,createdAt:bid.created_at}));
+}
+
+export function getTrackedBid(database:AuctionDatabase,bidId:string,now=new Date()):TrackedBid|null {
+  const bid=getInternalBid(database,bidId); if(!bid) return null;
+  const state=getAuctionState(database,now),spot=state.spots.find(candidate=>candidate.id===bid.spotId); if(!spot) return null;
+  const at=bid.email.indexOf("@"); const maskedEmail=at>0?`${bid.email[0]}${"•".repeat(Math.min(5,Math.max(2,at-1)))}${bid.email.slice(at)}`:"•••";
+  const rank=spot.startsAt ? (database.prepare(`SELECT 1+COUNT(*) AS rank FROM bids WHERE spot_id=? AND created_at>=?
+    AND status IN ('LEADING','OUTBID','PAYMENT_PENDING','PAID') AND (amount_cents>? OR (amount_cents=? AND created_at<?))`).get(spot.id,spot.startsAt,bid.amountCents,bid.amountCents,bid.createdAt) as {rank:number}).rank : null;
+  return {id:bid.id,spotId:bid.spotId,placement:spot.placement,company:bid.company,maskedEmail,amountCents:bid.amountCents,status:bid.status,rank:spot.ranking.length?rank:null,spotStatus:spot.status,endsAt:spot.endsAt,paymentDueAt:bid.paymentDueAt,checkoutUrl:bid.checkoutUrl,paymentLinkSentAt:bid.paymentLinkSentAt,createdAt:bid.createdAt};
 }
 
 export function getInternalBid(database:AuctionDatabase,bidId:string) { const row=database.prepare("SELECT * FROM bids WHERE id=?").get(bidId) as BidRow|undefined; return row?mapInternalBid(row):null; }
-function mapInternalBid(r:BidRow):InternalBid { return {id:r.id,spotId:r.spot_id,company:r.bidder_company,email:r.bidder_email,amountCents:r.amount_cents,status:r.status,paymentDueAt:r.payment_due_at,preferenceId:r.preference_id,checkoutUrl:r.checkout_url,paymentLinkSentAt:r.payment_link_sent_at,emailAttempts:r.email_attempts,nextEmailAt:r.next_email_at,emailFailure:r.email_failure,paymentId:r.payment_id,paymentStatus:r.payment_status,refundId:r.refund_id,refundReason:r.refund_reason}; }
+function mapInternalBid(r:BidRow):InternalBid { return {id:r.id,spotId:r.spot_id,company:r.bidder_company,email:r.bidder_email,amountCents:r.amount_cents,status:r.status,paymentDueAt:r.payment_due_at,preferenceId:r.preference_id,checkoutUrl:r.checkout_url,paymentLinkSentAt:r.payment_link_sent_at,emailAttempts:r.email_attempts,nextEmailAt:r.next_email_at,emailFailure:r.email_failure,paymentId:r.payment_id,paymentStatus:r.payment_status,refundId:r.refund_id,refundReason:r.refund_reason,createdAt:r.created_at}; }

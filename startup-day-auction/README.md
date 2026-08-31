@@ -10,6 +10,8 @@ Aplicación Next.js independiente para subastar los 12 lugares reales de la panc
 4. El link vence 24 horas después. Un pago correcto bloquea el lugar y suma la recaudación.
 5. Si no se acredita a tiempo, esa oferta vence y el lugar vuelve automáticamente a subasta.
 
+La landing muestra un ranking público por lugar con marca, importe, posición y estado. No publica emails ni IDs privados. Cada navegador conserva los UUID de las ofertas creadas allí y presenta “Mis ofertas” con el email enmascarado, posición, cuenta regresiva y acceso al checkout cuando corresponde.
+
 Los reintentos de email conservan el mismo checkout y usan una clave idempotente. Un pago tardío o con monto/moneda incorrectos nunca adjudica el lugar y entra en la cola de reembolso.
 
 ## Ejecutar localmente
