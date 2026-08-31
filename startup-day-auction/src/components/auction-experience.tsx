@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 
 import { formatArs } from "@/lib/auction/format";
+import { BID_INCREMENT_ARS } from "@/lib/auction/constants";
 import { MAX_LOGO_BYTES,MAX_LOGO_MB } from "@/lib/auction/logo";
 import type { AuctionState, BidStatus, PublicSpot, TrackedBid } from "@/lib/auction/types";
 
@@ -377,7 +378,7 @@ function BidDialog({
                 name="amount"
                 type="number"
                 min={spot.minimumBidCents / 100}
-                step={spot.minimumBidCents >= 39_000_000 ? 10_000 : 5_000}
+                step={BID_INCREMENT_ARS}
                 defaultValue={spot.minimumBidCents / 100}
                 inputMode="numeric"
                 required

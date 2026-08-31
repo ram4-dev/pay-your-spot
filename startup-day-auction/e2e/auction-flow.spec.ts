@@ -7,7 +7,7 @@ test("persists the auction and reserves the winner by email without expiration",
   await placeBid(page,"First E2E","first@example.com","5000");await expect(page.getByTestId("active-auctions")).toHaveText("1");
   await expect(page.getByTestId("spot-card-new-spot").getByAltText("Logo líder de First E2E")).toBeVisible();
   await page.getByTestId("view-offers-new-spot").click();await expect(page.locator("#ranking")).toBeInViewport();await expect(page.getByTestId("ranking-list").getByAltText("Logo de la oferta #1")).toBeVisible();
-  await placeBid(page,"Winner E2E","winner@example.com","10000");await expect(page.getByTestId("ranking-list").locator("li").first().getByAltText("Logo de la oferta #1")).toBeVisible();
+  await placeBid(page,"Winner E2E","winner@example.com","6000");await expect(page.getByTestId("ranking-list").locator("li").first().getByAltText("Logo de la oferta #1")).toBeVisible();
   await page.reload();await expect(page.getByTestId("my-bids-list")).toContainText("w•••••@example.com");
   await expect.poll(async()=>await page.getByTestId("offer-button-new-spot").isDisabled(),{timeout:15_000}).toBe(true);
   await expect(page.getByTestId("spot-card-new-spot")).toContainText("Reservada");await expect(page.getByTestId("my-bids-list")).not.toContainText("Pago vencido");

@@ -28,6 +28,8 @@ export type SpotSeed = {
 
 const ars = (amount: number) => amount * 100;
 const STARTING_AMOUNT_CENTS = ars(5_000);
+export const BID_INCREMENT_ARS = 1_000;
+const BID_INCREMENT_CENTS = ars(BID_INCREMENT_ARS);
 
 export const SPOT_SEEDS: SpotSeed[] = [
   {
@@ -38,7 +40,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     tier: "Premium",
     tone: "charcoal",
     startingAmountCents: STARTING_AMOUNT_CENTS,
-    incrementAmountCents: ars(10_000),
+    incrementAmountCents: BID_INCREMENT_CENTS,
   },
   {
     id: "side-a",
@@ -48,7 +50,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     tier: "Estándar",
     tone: "indigo",
     startingAmountCents: STARTING_AMOUNT_CENTS,
-    incrementAmountCents: ars(10_000),
+    incrementAmountCents: BID_INCREMENT_CENTS,
   },
   {
     id: "access",
@@ -58,7 +60,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     tier: "Estándar",
     tone: "brick",
     startingAmountCents: STARTING_AMOUNT_CENTS,
-    incrementAmountCents: ars(10_000),
+    incrementAmountCents: BID_INCREMENT_CENTS,
   },
   {
     id: "right-band",
@@ -68,7 +70,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     tier: "Estándar",
     tone: "rose",
     startingAmountCents: STARTING_AMOUNT_CENTS,
-    incrementAmountCents: ars(10_000),
+    incrementAmountCents: BID_INCREMENT_CENTS,
   },
   {
     id: "center-a",
@@ -78,7 +80,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     tier: "Compacto",
     tone: "blue",
     startingAmountCents: STARTING_AMOUNT_CENTS,
-    incrementAmountCents: ars(5_000),
+    incrementAmountCents: BID_INCREMENT_CENTS,
   },
   {
     id: "center-b",
@@ -88,7 +90,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     tier: "Compacto",
     tone: "violet",
     startingAmountCents: STARTING_AMOUNT_CENTS,
-    incrementAmountCents: ars(5_000),
+    incrementAmountCents: BID_INCREMENT_CENTS,
   },
   {
     id: "lower-a",
@@ -98,7 +100,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     tier: "Compacto",
     tone: "green",
     startingAmountCents: STARTING_AMOUNT_CENTS,
-    incrementAmountCents: ars(5_000),
+    incrementAmountCents: BID_INCREMENT_CENTS,
   },
   {
     id: "lower-b",
@@ -108,7 +110,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     tier: "Compacto",
     tone: "yellow",
     startingAmountCents: STARTING_AMOUNT_CENTS,
-    incrementAmountCents: ars(5_000),
+    incrementAmountCents: BID_INCREMENT_CENTS,
   },
   {
     id: "side-b",
@@ -118,7 +120,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     tier: "Compacto",
     tone: "sand",
     startingAmountCents: STARTING_AMOUNT_CENTS,
-    incrementAmountCents: ars(5_000),
+    incrementAmountCents: BID_INCREMENT_CENTS,
   },
   {
     id: "corner-a",
@@ -128,7 +130,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     tier: "Compacto",
     tone: "slate",
     startingAmountCents: STARTING_AMOUNT_CENTS,
-    incrementAmountCents: ars(5_000),
+    incrementAmountCents: BID_INCREMENT_CENTS,
   },
   {
     id: "corner-b",
@@ -138,7 +140,7 @@ export const SPOT_SEEDS: SpotSeed[] = [
     tier: "Compacto",
     tone: "orange",
     startingAmountCents: STARTING_AMOUNT_CENTS,
-    incrementAmountCents: ars(5_000),
+    incrementAmountCents: BID_INCREMENT_CENTS,
   },
   {
     id: "new-spot",
@@ -148,6 +150,6 @@ export const SPOT_SEEDS: SpotSeed[] = [
     tier: "Compacto",
     tone: "open",
     startingAmountCents: STARTING_AMOUNT_CENTS,
-    incrementAmountCents: ars(5_000),
+    incrementAmountCents: BID_INCREMENT_CENTS,
   },
 ];

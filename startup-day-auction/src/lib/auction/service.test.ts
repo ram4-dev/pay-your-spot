@@ -9,7 +9,7 @@ import { AuctionError,closeExpiredAuctions,getAuctionState,getInternalBid,getTra
 
 const START=new Date("2026-08-29T15:00:00Z");
 const LOGO_BYTES=Uint8Array.from([137,80,78,71,13,10,26,10]);
-const input=(company="Prisma",amountCents=500_000)=>({spotId:"new-spot",company,email:`${company.toLowerCase()}@example.com`,amountCents,logoBytes:LOGO_BYTES,logoMimeType:"image/png" as const});
+const input=(company="Prisma",amountCents=500_000)=>({spotId:"new-spot",company,email:`${company.toLowerCase().replace(/[^a-z0-9]+/g,"")}@example.com`,amountCents,logoBytes:LOGO_BYTES,logoMimeType:"image/png" as const});
 
 describe("email reservation auction",()=>{
   let db:AuctionDatabase;
@@ -21,8 +21,13 @@ describe("email reservation auction",()=>{
     expect(bid).toMatchObject({email:"prisma@example.com",logoUrl:expect.stringMatching(/^\/api\/logos\//)});expect(spot.sponsorLogoUrl).toBe(bid.logoUrl);expect(state.spots.every(candidate=>candidate.startingAmountCents===500_000)).toBe(true);expect(spot.endsAt).toBe(new Date(START.getTime()+DEFAULT_AUCTION_DURATION_MS).toISOString());expect(spot.status).toBe("ACTIVE");
   });
   it("rejects an offer below the minimum",()=>{expect(()=>placeBid(db,input("Low",499_999),START)).toThrowError(AuctionError);});
+  it("requires exactly ARS 1,000 more than the previous leading offer",()=>{
+    placeBid(db,input("First"),START);expect(getAuctionState(db,START).spots.find(s=>s.id==="new-spot")?.minimumBidCents).toBe(600_000);
+    expect(()=>placeBid(db,input("Too close",599_999),new Date(START.getTime()+500))).toThrowError(AuctionError);
+    expect(placeBid(db,input("Exact increment",600_000),new Date(START.getTime()+1000)).amountCents).toBe(600_000);
+  });
   it("moves leadership and exposes the current ranking",()=>{
-    const first=placeBid(db,input("First"),START),second=placeBid(db,input("Second",1_000_000),new Date(START.getTime()+1000));
+    const first=placeBid(db,input("First"),START),second=placeBid(db,input("Second",600_000),new Date(START.getTime()+1000));
     expect(getInternalBid(db,first.id)?.status).toBe("OUTBID");expect(getInternalBid(db,second.id)?.status).toBe("LEADING");
     expect(getAuctionState(db,START).spots.find(s=>s.id==="new-spot")?.ranking.map(b=>[b.company,b.rank])).toEqual([["Second",1],["First",2]]);
   });
