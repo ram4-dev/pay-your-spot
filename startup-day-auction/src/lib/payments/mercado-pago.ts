@@ -20,11 +20,14 @@ type MercadoPagoErrorBody = {
 
 export class MercadoPagoProvider implements PaymentProvider {
   readonly name = "mercadopago" as const;
+  private readonly apiBase: string;
 
   constructor(
     private readonly accessToken: string,
     private readonly fetcher: Fetcher = fetch,
-    private readonly apiBase = "https://api.mercadopago.com",
+    apiBase =
+      process.env.MERCADOPAGO_API_BASE_URL?.trim() ||
+      "https://api.mercadopago.com",
   ) {
     if (!accessToken) {
       throw new PaymentProviderError(
@@ -33,6 +36,7 @@ export class MercadoPagoProvider implements PaymentProvider {
         "MISSING_ACCESS_TOKEN",
       );
     }
+    this.apiBase = apiBase.replace(/\/+$/, "");
   }
 
   async createCheckout(input: CheckoutRequest): Promise<CheckoutResponse> {

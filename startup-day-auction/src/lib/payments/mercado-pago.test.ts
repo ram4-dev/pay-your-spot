@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { InternalBid } from "@/lib/auction/types";
 
@@ -24,6 +24,10 @@ const bid: InternalBid = {
 };
 
 describe("MercadoPagoProvider", () => {
+  afterEach(() => {
+    delete process.env.MERCADOPAGO_API_BASE_URL;
+  });
+
   it("creates an ARS preference tied to the bid without exposing the access token", async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
@@ -75,6 +79,27 @@ describe("MercadoPagoProvider", () => {
       currency: "ARS",
       payerEmail: bid.email,
     });
+  });
+
+  it("uses an environment-provided API base for a private payment proxy", async () => {
+    process.env.MERCADOPAGO_API_BASE_URL = "https://payments-proxy.example/";
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        id: 987,
+        status: "approved",
+        external_reference: bid.id,
+        transaction_amount: 680000,
+        currency_id: "ARS",
+      }),
+    );
+    const provider = new MercadoPagoProvider("temporary-proxy-capability", fetcher);
+
+    await provider.getPayment("987");
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://payments-proxy.example/v1/payments/987",
+      expect.any(Object),
+    );
   });
 
   it("uses a stable idempotency key for full refunds", async () => {

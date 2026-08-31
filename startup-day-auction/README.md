@@ -47,6 +47,8 @@ MERCADOPAGO_WEBHOOK_URL=https://tu-dominio.example/api/webhooks/mercadopago
 
 El webhook valida `x-signature` con HMAC-SHA256. Las preferencias y los reembolsos usan claves idempotentes estables. `PUBLIC_APP_URL` debe ser HTTPS y accesible por Mercado Pago para verificar el webhook real.
 
+Cuando el proceso de la aplicación no puede recibir el token directamente, `MERCADOPAGO_API_BASE_URL` permite apuntar a un proxy privado que reemplace la autorización. Si se omite, todas las solicitudes van directamente a `https://api.mercadopago.com`.
+
 ## Verificación
 
 ```bash
