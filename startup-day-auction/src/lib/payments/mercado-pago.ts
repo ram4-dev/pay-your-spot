@@ -60,7 +60,7 @@ export class MercadoPagoProvider implements PaymentProvider {
           {
             id: input.bid.spotId,
             title: `Startup Day 2026 · ${input.placement}`,
-            description: "Oferta por un lugar en la pancarta principal",
+            description: "Pago de la oferta ganadora por un lugar en la pancarta principal",
             quantity: 1,
             currency_id: "ARS",
             unit_price: input.bid.amountCents / 100,
@@ -77,7 +77,7 @@ export class MercadoPagoProvider implements PaymentProvider {
         auto_return: "approved",
         binary_mode: true,
         expires: true,
-        expiration_date_to: input.bid.reservationExpiresAt,
+        expiration_date_to: input.bid.paymentDueAt,
         payment_methods: {
           excluded_payment_types: [
             { id: "ticket" },

@@ -1,8 +1,7 @@
 import { z } from "zod";
 
 import { AuctionError } from "@/lib/auction/service";
-import { createBidCheckout } from "@/lib/payments/orchestrator";
-import { PaymentProviderError } from "@/lib/payments/types";
+import { placeAuctionBid } from "@/lib/payments/orchestrator";
 
 export const runtime = "nodejs";
 
@@ -23,30 +22,24 @@ export async function POST(request: Request) {
       );
     }
 
-    const baseUrl = process.env.PUBLIC_APP_URL?.trim() || new URL(request.url).origin;
-    const checkout = await createBidCheckout(
+    const bid = placeAuctionBid(
       {
         spotId: parsed.data.spotId,
         company: parsed.data.company,
         email: parsed.data.email,
         amountCents: parsed.data.amountArs * 100,
       },
-      baseUrl,
     );
-    return Response.json(checkout, { status: 201 });
+    return Response.json(bid, { status: 201 });
   } catch (error) {
-    if (error instanceof AuctionError || error instanceof PaymentProviderError) {
-      const code =
-        error instanceof AuctionError
-          ? error.code
-          : error.providerCode ?? "PAYMENT_ERROR";
+    if (error instanceof AuctionError) {
       return Response.json(
-        { error: { code, message: error.message } },
+        { error: { code: error.code, message: error.message } },
         { status: error.status },
       );
     }
     return Response.json(
-      { error: { code: "INTERNAL_ERROR", message: "No pudimos iniciar el checkout." } },
+      { error: { code: "INTERNAL_ERROR", message: "No pudimos registrar la oferta." } },
       { status: 500 },
     );
   }

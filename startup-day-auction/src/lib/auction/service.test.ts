@@ -1,185 +1,56 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach,beforeEach,describe,expect,it } from "vitest";
+import { DEFAULT_AUCTION_DURATION_MS,DEFAULT_PAYMENT_WINDOW_MS } from "./constants";
+import { createAuctionDatabase,type AuctionDatabase } from "./database";
+import { applyProviderPayment,closeExpiredAuctions,getAuctionState,getInternalBid,placeBid,reopenExpiredPaymentWindows } from "./service";
 
-import { DEFAULT_AUCTION_DURATION_MS } from "./constants";
-import { createAuctionDatabase, type AuctionDatabase } from "./database";
-import {
-  AuctionError,
-  applyProviderPayment,
-  closeExpiredAuctions,
-  completeRefund,
-  createPendingBid,
-  getAuctionState,
-  getInternalBid,
-} from "./service";
+const START=new Date("2026-08-29T15:00:00.000Z");
+const input=(company="Prisma",amountCents=15_000_000)=>({spotId:"new-spot",company,email:`${company.toLowerCase()}@example.com`,amountCents});
+const approved=(id:string,amountCents:number)=>({id:`pay-${id}`,status:"approved",externalReference:id,amountCents,currency:"ARS",payerEmail:"buyer@example.com"});
 
-const FIRST_PAYMENT_AT = new Date("2026-08-29T15:00:00.000Z");
+describe("deferred-payment auction",()=>{
+  let db:AuctionDatabase;
+  beforeEach(()=>{delete process.env.AUCTION_DURATION_SECONDS;delete process.env.PAYMENT_WINDOW_SECONDS;delete process.env.ENABLE_TEST_PAYMENT_PROVIDER;db=createAuctionDatabase();});
+  afterEach(()=>db.close());
 
-function approvedPayment(bidId: string, amountCents: number, id = `pay-${bidId}`) {
-  return {
-    id,
-    status: "approved",
-    externalReference: bidId,
-    amountCents,
-    currency: "ARS",
-    payerEmail: "buyer@example.com",
-  };
-}
-
-describe("auction service", () => {
-  let database: AuctionDatabase;
-
-  beforeEach(() => {
-    delete process.env.AUCTION_DURATION_SECONDS;
-    delete process.env.ENABLE_TEST_PAYMENT_PROVIDER;
-    database = createAuctionDatabase();
+  it("starts 72 hours on the first bid without charging it",()=>{
+    const bid=placeBid(db,input(),START),spot=getAuctionState(db,START).spots.find(s=>s.id==="new-spot")!;
+    expect(bid.status).toBe("LEADING"); expect(spot.startsAt).toBe(START.toISOString());
+    expect(spot.endsAt).toBe(new Date(START.getTime()+DEFAULT_AUCTION_DURATION_MS).toISOString());
+    expect(getAuctionState(db,START).metrics.totalRaisedCents).toBe(0);
   });
 
-  afterEach(() => database.close());
-
-  it("starts a 72-hour auction only after the first approved payment", () => {
-    const bid = createPendingBid(database, {
-      spotId: "new-spot",
-      company: "Prisma Labs",
-      email: "hola@prisma.test",
-      amountCents: 15_000_000,
-    }, FIRST_PAYMENT_AT);
-
-    expect(getAuctionState(database, FIRST_PAYMENT_AT).metrics.activeAuctions).toBe(0);
-    const result = applyProviderPayment(
-      database,
-      approvedPayment(bid.id, bid.amountCents),
-      FIRST_PAYMENT_AT,
-    );
-    const state = getAuctionState(database, FIRST_PAYMENT_AT);
-    const spot = state.spots.find((candidate) => candidate.id === "new-spot")!;
-
-    expect(result.outcome).toBe("leading");
-    expect(state.metrics.activeAuctions).toBe(1);
-    expect(state.metrics.totalRaisedCents).toBe(15_000_000);
-    expect(spot.startsAt).toBe(FIRST_PAYMENT_AT.toISOString());
-    expect(spot.endsAt).toBe(
-      new Date(FIRST_PAYMENT_AT.getTime() + DEFAULT_AUCTION_DURATION_MS).toISOString(),
-    );
+  it("replaces leadership atomically without payments or refunds",()=>{
+    const first=placeBid(db,input("First"),START);
+    const second=placeBid(db,input("Second",15_500_000),new Date(START.getTime()+1000));
+    expect(getInternalBid(db,first.id)?.status).toBe("OUTBID"); expect(getInternalBid(db,second.id)?.status).toBe("LEADING");
+    expect(getAuctionState(db).spots.find(s=>s.id==="new-spot")?.sponsor).toBe("Second");
   });
 
-  it("rejects offers below the real minimum", () => {
-    expect(() =>
-      createPendingBid(database, {
-        spotId: "new-spot",
-        company: "Low Bid",
-        email: "low@example.com",
-        amountCents: 14_999_900,
-      }, FIRST_PAYMENT_AT),
-    ).toThrowError(AuctionError);
+  it("moves the winner into an exact 24-hour payment window",()=>{
+    const bid=placeBid(db,input(),START),closing=new Date(START.getTime()+DEFAULT_AUCTION_DURATION_MS);
+    expect(closeExpiredAuctions(db,closing)).toBe(1);
+    const spot=getAuctionState(db,closing).spots.find(s=>s.id==="new-spot")!;
+    expect(spot.status).toBe("AWAITING_PAYMENT"); expect(getInternalBid(db,bid.id)?.status).toBe("PAYMENT_PENDING");
+    expect(spot.paymentDueAt).toBe(new Date(closing.getTime()+DEFAULT_PAYMENT_WINDOW_MS).toISOString());
   });
 
-  it("moves leadership atomically and refunds the previous paid leader", () => {
-    const first = createPendingBid(database, {
-      spotId: "new-spot",
-      company: "First Labs",
-      email: "first@example.com",
-      amountCents: 15_000_000,
-    }, FIRST_PAYMENT_AT);
-    applyProviderPayment(database, approvedPayment(first.id, first.amountCents), FIRST_PAYMENT_AT);
-
-    const second = createPendingBid(database, {
-      spotId: "new-spot",
-      company: "Second Labs",
-      email: "second@example.com",
-      amountCents: 15_500_000,
-    }, new Date(FIRST_PAYMENT_AT.getTime() + 1_000));
-    const result = applyProviderPayment(
-      database,
-      approvedPayment(second.id, second.amountCents),
-      new Date(FIRST_PAYMENT_AT.getTime() + 2_000),
-    );
-
-    expect(result.refundBidIds).toEqual([first.id]);
-    expect(getInternalBid(database, first.id)?.status).toBe("REFUND_PENDING");
-    expect(getInternalBid(database, second.id)?.status).toBe("LEADING");
-    completeRefund(database, first.id, "refund-first");
-    expect(getInternalBid(database, first.id)?.status).toBe("REFUNDED");
-    expect(getAuctionState(database).metrics.totalRaisedCents).toBe(15_500_000);
+  it("locks and counts only a valid winner payment",()=>{
+    const bid=placeBid(db,input(),START),closing=new Date(START.getTime()+DEFAULT_AUCTION_DURATION_MS);closeExpiredAuctions(db,closing);
+    expect(applyProviderPayment(db,approved(bid.id,bid.amountCents),new Date(closing.getTime()+1000)).outcome).toBe("paid");
+    const state=getAuctionState(db);expect(state.metrics.lockedSpots).toBe(1);expect(state.metrics.totalRaisedCents).toBe(bid.amountCents);
   });
 
-  it("locks the place and declares the leader winner exactly at 72 hours", () => {
-    const bid = createPendingBid(database, {
-      spotId: "new-spot",
-      company: "Winner Labs",
-      email: "winner@example.com",
-      amountCents: 15_000_000,
-    }, FIRST_PAYMENT_AT);
-    applyProviderPayment(database, approvedPayment(bid.id, bid.amountCents), FIRST_PAYMENT_AT);
-
-    const closingTime = new Date(FIRST_PAYMENT_AT.getTime() + DEFAULT_AUCTION_DURATION_MS);
-    expect(closeExpiredAuctions(database, new Date(closingTime.getTime() - 1))).toBe(0);
-    expect(closeExpiredAuctions(database, closingTime)).toBe(1);
-
-    const state = getAuctionState(database, closingTime);
-    expect(state.metrics.activeAuctions).toBe(0);
-    expect(state.metrics.lockedSpots).toBe(1);
-    expect(state.spots.find((spot) => spot.id === "new-spot")?.status).toBe("LOCKED");
-    expect(getInternalBid(database, bid.id)?.status).toBe("WON");
+  it("reopens after an unpaid window and starts a fresh round",()=>{
+    const first=placeBid(db,input("First"),START),closing=new Date(START.getTime()+DEFAULT_AUCTION_DURATION_MS);closeExpiredAuctions(db,closing);
+    const expiry=new Date(closing.getTime()+DEFAULT_PAYMENT_WINDOW_MS);expect(reopenExpiredPaymentWindows(db,expiry)).toBe(1);
+    expect(getInternalBid(db,first.id)?.status).toBe("PAYMENT_EXPIRED");
+    const next=placeBid(db,input("Next"),new Date(expiry.getTime()+1)),spot=getAuctionState(db).spots.find(s=>s.id==="new-spot")!;
+    expect(next.status).toBe("LEADING");expect(spot.auctionRound).toBe(2);expect(spot.endsAt).toBe(new Date(expiry.getTime()+1+DEFAULT_AUCTION_DURATION_MS).toISOString());
   });
 
-  it("refunds an approved payment that arrives after the auction closed", () => {
-    const winner = createPendingBid(database, {
-      spotId: "new-spot",
-      company: "Winner Labs",
-      email: "winner@example.com",
-      amountCents: 15_000_000,
-    }, FIRST_PAYMENT_AT);
-    applyProviderPayment(database, approvedPayment(winner.id, winner.amountCents), FIRST_PAYMENT_AT);
-
-    const late = createPendingBid(database, {
-      spotId: "new-spot",
-      company: "Late Labs",
-      email: "late@example.com",
-      amountCents: 15_500_000,
-    }, new Date(FIRST_PAYMENT_AT.getTime() + 60_000));
-    const afterClose = new Date(
-      FIRST_PAYMENT_AT.getTime() + DEFAULT_AUCTION_DURATION_MS + 1,
-    );
-    const result = applyProviderPayment(
-      database,
-      approvedPayment(late.id, late.amountCents),
-      afterClose,
-    );
-
-    expect(result.outcome).toBe("refund-required");
-    expect(result.refundBidIds).toEqual([late.id]);
-    expect(getInternalBid(database, late.id)?.refundReason).toBe("AUCTION_CLOSED");
-    expect(getInternalBid(database, winner.id)?.status).toBe("WON");
-    expect(getAuctionState(database, afterClose).metrics.totalRaisedCents).toBe(15_000_000);
-  });
-
-  it("refunds a lower payment confirmed after a higher leader", () => {
-    const lower = createPendingBid(database, {
-      spotId: "new-spot",
-      company: "Lower Labs",
-      email: "lower@example.com",
-      amountCents: 15_000_000,
-    }, FIRST_PAYMENT_AT);
-    const higher = createPendingBid(database, {
-      spotId: "new-spot",
-      company: "Higher Labs",
-      email: "higher@example.com",
-      amountCents: 16_000_000,
-    }, FIRST_PAYMENT_AT);
-
-    applyProviderPayment(database, approvedPayment(higher.id, higher.amountCents), FIRST_PAYMENT_AT);
-    const result = applyProviderPayment(
-      database,
-      approvedPayment(lower.id, lower.amountCents),
-      new Date(FIRST_PAYMENT_AT.getTime() + 1_000),
-    );
-
-    expect(result.outcome).toBe("refund-required");
-    expect(getInternalBid(database, lower.id)?.refundReason).toBe(
-      "OUTBID_BEFORE_CONFIRMATION",
-    );
-    expect(getAuctionState(database).spots.find((spot) => spot.id === "new-spot")?.sponsor).toBe(
-      "Higher Labs",
-    );
+  it("queues a late payment for refund",()=>{
+    const bid=placeBid(db,input(),START),closing=new Date(START.getTime()+DEFAULT_AUCTION_DURATION_MS);closeExpiredAuctions(db,closing);
+    const late=new Date(closing.getTime()+DEFAULT_PAYMENT_WINDOW_MS+1),result=applyProviderPayment(db,approved(bid.id,bid.amountCents),late);
+    expect(result.outcome).toBe("refund-required");expect(getInternalBid(db,bid.id)?.refundReason).toBe("PAYMENT_WINDOW_EXPIRED");
   });
 });

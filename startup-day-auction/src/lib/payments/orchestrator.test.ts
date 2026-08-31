@@ -1,96 +1,27 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import { createAuctionDatabase, type AuctionDatabase } from "@/lib/auction/database";
-import { getAuctionState, getInternalBid } from "@/lib/auction/service";
+import { afterEach,beforeEach,describe,expect,it,vi } from "vitest";
+import { createAuctionDatabase,type AuctionDatabase } from "@/lib/auction/database";
+import { closeExpiredAuctions,getInternalBid } from "@/lib/auction/service";
 import type { ProviderPayment } from "@/lib/auction/types";
+import type { EmailProvider } from "@/lib/email/types";
+import { dispatchWinnerPaymentLinks,placeAuctionBid,settleProviderPayment } from "./orchestrator";
+import type { CheckoutRequest,PaymentProvider } from "./types";
 
-import { createBidCheckout, settleProviderPayment } from "./orchestrator";
-import type { CheckoutRequest, PaymentProvider } from "./types";
+class RecordingProvider implements PaymentProvider { readonly name="test" as const; create=vi.fn(async(i:CheckoutRequest)=>({preferenceId:`pref-${i.bid.id}`,checkoutUrl:`https://pay.test/${i.bid.id}`}));refundPayment=vi.fn(async(id:string)=>({id:`refund-${id}`}));createCheckout(i:CheckoutRequest){return this.create(i)} async getPayment():Promise<ProviderPayment>{throw new Error("unused")} }
+class RecordingEmail implements EmailProvider { readonly name="test" as const; send=vi.fn(async(i:{bidId:string})=>({id:`email-${i.bidId}`}));sendWinnerPayment(i:Parameters<EmailProvider["sendWinnerPayment"]>[0]){return this.send(i)} }
 
-class RecordingProvider implements PaymentProvider {
-  readonly name = "test" as const;
-  readonly refunds = vi.fn(async (paymentId: string, idempotencyKey: string) => {
-    void idempotencyKey;
-    return { id: `refund-${paymentId}` };
-  });
-
-  async createCheckout(input: CheckoutRequest) {
-    return {
-      preferenceId: `preference-${input.bid.id}`,
-      checkoutUrl: `https://checkout.test/${input.bid.id}`,
-    };
-  }
-
-  async getPayment(): Promise<ProviderPayment> {
-    throw new Error("not used");
-  }
-
-  refundPayment(paymentId: string, idempotencyKey: string) {
-    return this.refunds(paymentId, idempotencyKey);
-  }
-}
-
-describe("payment orchestration", () => {
-  let database: AuctionDatabase;
-  let provider: RecordingProvider;
-  const startedAt = new Date("2026-08-29T15:00:00.000Z");
-
-  beforeEach(() => {
-    database = createAuctionDatabase();
-    provider = new RecordingProvider();
-  });
-
-  afterEach(() => database.close());
-
-  it("creates checkout, promotes the paid bid, and automatically refunds the previous leader", async () => {
-    const first = await createBidCheckout(
-      {
-        spotId: "new-spot",
-        company: "First Labs",
-        email: "first@example.com",
-        amountCents: 15_000_000,
-      },
-      "https://auction.test",
-      { database, provider, now: startedAt },
-    );
-    await settleProviderPayment(
-      approved(first.bidId, 15_000_000, "payment-first"),
-      { database, provider, now: startedAt },
-    );
-
-    const second = await createBidCheckout(
-      {
-        spotId: "new-spot",
-        company: "Second Labs",
-        email: "second@example.com",
-        amountCents: 15_500_000,
-      },
-      "https://auction.test",
-      { database, provider, now: new Date(startedAt.getTime() + 1_000) },
-    );
-    await settleProviderPayment(
-      approved(second.bidId, 15_500_000, "payment-second"),
-      { database, provider, now: new Date(startedAt.getTime() + 2_000) },
-    );
-
-    expect(provider.refunds).toHaveBeenCalledOnce();
-    expect(provider.refunds).toHaveBeenCalledWith(
-      "payment-first",
-      `refund-${first.bidId}`,
-    );
-    expect(getInternalBid(database, first.bidId)?.status).toBe("REFUNDED");
-    expect(getInternalBid(database, second.bidId)?.status).toBe("LEADING");
-    expect(getAuctionState(database).metrics.totalRaisedCents).toBe(15_500_000);
+describe("winner payment orchestration",()=>{
+  let db:AuctionDatabase,provider:RecordingProvider,email:RecordingEmail;const start=new Date("2026-08-29T15:00:00Z");
+  beforeEach(()=>{process.env.ENABLE_TEST_PAYMENT_PROVIDER="1";process.env.AUCTION_DURATION_SECONDS="8";process.env.PAYMENT_WINDOW_SECONDS="20";db=createAuctionDatabase();provider=new RecordingProvider();email=new RecordingEmail();});
+  afterEach(()=>{db.close();delete process.env.ENABLE_TEST_PAYMENT_PROVIDER;delete process.env.AUCTION_DURATION_SECONDS;delete process.env.PAYMENT_WINDOW_SECONDS;});
+  it("creates and emails one checkout only after the auction closes",async()=>{
+    const first=placeAuctionBid({spotId:"new-spot",company:"First",email:"first@example.com",amountCents:15_000_000},{database:db,now:start});
+    const second=placeAuctionBid({spotId:"new-spot",company:"Winner",email:"winner@example.com",amountCents:15_500_000},{database:db,now:new Date(start.getTime()+1000)});
+    expect(provider.create).not.toHaveBeenCalled();closeExpiredAuctions(db,new Date(start.getTime()+8000));
+    await dispatchWinnerPaymentLinks("https://auction.test",{database:db,provider,emailProvider:email,now:new Date(start.getTime()+8000)});
+    expect(provider.create).toHaveBeenCalledOnce();expect(email.send).toHaveBeenCalledWith(expect.objectContaining({bidId:second.bidId,to:"winner@example.com"}));
+    await dispatchWinnerPaymentLinks("https://auction.test",{database:db,provider,emailProvider:email,now:new Date(start.getTime()+9000)});
+    expect(provider.create).toHaveBeenCalledOnce();expect(email.send).toHaveBeenCalledOnce();expect(getInternalBid(db,first.bidId)?.status).toBe("OUTBID");
+    await settleProviderPayment({id:"pay",status:"approved",externalReference:second.bidId,amountCents:15_500_000,currency:"ARS",payerEmail:"winner@example.com"},{database:db,provider,now:new Date(start.getTime()+10_000)});
+    expect(getInternalBid(db,second.bidId)?.status).toBe("PAID");
   });
 });
-
-function approved(bidId: string, amountCents: number, paymentId: string): ProviderPayment {
-  return {
-    id: paymentId,
-    status: "approved",
-    externalReference: bidId,
-    amountCents,
-    currency: "ARS",
-    payerEmail: "buyer@example.com",
-  };
-}
