@@ -27,7 +27,7 @@ function createSchema(database:DatabaseSync){database.exec(`
   CREATE TABLE IF NOT EXISTS bids(
     id TEXT PRIMARY KEY,spot_id TEXT NOT NULL REFERENCES spots(id),bidder_company TEXT NOT NULL,bidder_email TEXT NOT NULL,
     amount_cents INTEGER NOT NULL CHECK(amount_cents>0),status TEXT NOT NULL CHECK(status IN('LEADING','OUTBID','RESERVED','CONTACTED','FAILED')),
-    created_at TEXT NOT NULL,updated_at TEXT NOT NULL,contacted_at TEXT
+    created_at TEXT NOT NULL,updated_at TEXT NOT NULL,contacted_at TEXT,bidder_logo BLOB,logo_mime_type TEXT CHECK(logo_mime_type IN('image/png','image/jpeg'))
   );
   CREATE INDEX IF NOT EXISTS bids_spot_status_idx ON bids(spot_id,status);
   CREATE INDEX IF NOT EXISTS bids_email_idx ON bids(bidder_email);
@@ -36,8 +36,8 @@ function createSchema(database:DatabaseSync){database.exec(`
 
 function migrate(database:DatabaseSync){
   const existing=database.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='bids'").get() as {sql:string}|undefined;
-  if(!existing){createSchema(database);database.exec("PRAGMA user_version=3");return;}
-  if(existing.sql.includes("'RESERVED'")){createSchema(database);database.exec("PRAGMA user_version=3");return;}
+  if(!existing){createSchema(database);database.exec("PRAGMA user_version=4");return;}
+  if(existing.sql.includes("'RESERVED'")){createSchema(database);const columns=database.prepare("PRAGMA table_info(bids)").all() as Array<{name:string}>;if(!columns.some(column=>column.name==="bidder_logo"))database.exec("ALTER TABLE bids ADD COLUMN bidder_logo BLOB; ALTER TABLE bids ADD COLUMN logo_mime_type TEXT CHECK(logo_mime_type IN('image/png','image/jpeg'));");database.exec("PRAGMA user_version=4");return;}
   database.exec("PRAGMA foreign_keys=OFF");
   transaction(database,()=>{
     database.exec("ALTER TABLE bids RENAME TO bids_legacy; ALTER TABLE spots RENAME TO spots_legacy;");createSchema(database);
@@ -62,7 +62,7 @@ function migrate(database:DatabaseSync){
       DROP TABLE bids_legacy;DROP TABLE spots_legacy;
     `);
   });
-  database.exec("PRAGMA user_version=3; PRAGMA foreign_keys=ON");
+  database.exec("PRAGMA user_version=4; PRAGMA foreign_keys=ON");
 }
 
 function seed(database:DatabaseSync){const insert=database.prepare("INSERT INTO spots(id,placement,description,size_label,tier,tone,starting_amount_cents,increment_amount_cents)VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET starting_amount_cents=excluded.starting_amount_cents");transaction(database,()=>{for(const s of SPOT_SEEDS)insert.run(s.id,s.placement,s.description,s.sizeLabel,s.tier,s.tone,s.startingAmountCents,s.incrementAmountCents);});}

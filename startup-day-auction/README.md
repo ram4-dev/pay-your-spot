@@ -4,10 +4,10 @@ Aplicación Next.js independiente para subastar los 12 lugares reales de la panc
 
 ## Flujo
 
-1. La marca elige un lugar, ingresa empresa, email e importe y confirma la oferta.
-2. La primera oferta abre la subasta durante 72 horas. Las siguientes actualizan el ranking.
+1. La marca elige un lugar, sube un logo PNG/JPG, ingresa email e importe y confirma la oferta.
+2. La primera oferta abre la subasta durante 72 horas y coloca el logo en el lugar elegido. Las siguientes actualizan el ranking y el logo líder.
 3. Al cierre, el lugar queda `RESERVED` permanentemente para la oferta ganadora.
-4. La reserva conserva empresa, email, importe, lugar y fecha en SQLite. No vence.
+4. La reserva conserva logo, email, importe, lugar y fecha en SQLite. No vence.
 5. El equipo consulta `/admin/reservas`, exporta los contactos o abre un borrador de email manual.
 
 El ranking público nunca expone emails ni IDs privados. “Mis ofertas” conserva en cada navegador los UUID creados allí y muestra el email enmascarado y el estado actualizado.
@@ -45,7 +45,7 @@ El token se envía sólo en el header `Authorization` y no se persiste en el nav
 
 ## Persistencia y migración
 
-SQLite usa WAL, claves foráneas y transacciones `BEGIN IMMEDIATE`. La migración v3 convierte los anteriores estados `PAYMENT_PENDING`, `PAYMENT_EXPIRED`, `PAID` y `WON` en `RESERVED`; así desaparece el falso “pago vencido” sin perder el email ganador.
+SQLite usa WAL, claves foráneas y transacciones `BEGIN IMMEDIATE`. La migración v3 convierte los anteriores estados `PAYMENT_PENDING`, `PAYMENT_EXPIRED`, `PAID` y `WON` en `RESERVED`; la v4 agrega logos PNG/JPG persistentes sin perder ofertas anteriores.
 
 | Estado | Significado |
 | --- | --- |
@@ -62,7 +62,7 @@ npm test
 npm run test:e2e
 ```
 
-Las pruebas cubren reloj de 72 horas, ranking, cambio de líder, reserva sin vencimiento, persistencia tras reabrir SQLite, almacenamiento de emails, panel privado y experiencia mobile.
+Las pruebas cubren reloj de 72 horas, ranking, cambio de líder y de logo visible, reserva sin vencimiento, persistencia tras reabrir SQLite, almacenamiento de emails y logos, panel privado y experiencia mobile.
 
 ## Producción
 

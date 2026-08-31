@@ -8,7 +8,8 @@ import { createAuctionDatabase,type AuctionDatabase } from "./database";
 import { AuctionError,closeExpiredAuctions,getAuctionState,getInternalBid,getTrackedBid,listContactRecords,markContacted,placeBid } from "./service";
 
 const START=new Date("2026-08-29T15:00:00Z");
-const input=(company="Prisma",amountCents=500_000)=>({spotId:"new-spot",company,email:`${company.toLowerCase()}@example.com`,amountCents});
+const LOGO_BYTES=Uint8Array.from([137,80,78,71,13,10,26,10]);
+const input=(company="Prisma",amountCents=500_000)=>({spotId:"new-spot",company,email:`${company.toLowerCase()}@example.com`,amountCents,logoBytes:LOGO_BYTES,logoMimeType:"image/png" as const});
 
 describe("email reservation auction",()=>{
   let db:AuctionDatabase;
@@ -17,7 +18,7 @@ describe("email reservation auction",()=>{
 
   it("starts exactly 72 hours and stores the bidder email",()=>{
     const bid=placeBid(db,input(),START),state=getAuctionState(db,START),spot=state.spots.find(s=>s.id==="new-spot")!;
-    expect(bid.email).toBe("prisma@example.com");expect(state.spots.every(candidate=>candidate.startingAmountCents===500_000)).toBe(true);expect(spot.endsAt).toBe(new Date(START.getTime()+DEFAULT_AUCTION_DURATION_MS).toISOString());expect(spot.status).toBe("ACTIVE");
+    expect(bid).toMatchObject({email:"prisma@example.com",logoUrl:expect.stringMatching(/^\/api\/logos\//)});expect(spot.sponsorLogoUrl).toBe(bid.logoUrl);expect(state.spots.every(candidate=>candidate.startingAmountCents===500_000)).toBe(true);expect(spot.endsAt).toBe(new Date(START.getTime()+DEFAULT_AUCTION_DURATION_MS).toISOString());expect(spot.status).toBe("ACTIVE");
   });
   it("rejects an offer below the minimum",()=>{expect(()=>placeBid(db,input("Low",499_999),START)).toThrowError(AuctionError);});
   it("moves leadership and exposes the current ranking",()=>{

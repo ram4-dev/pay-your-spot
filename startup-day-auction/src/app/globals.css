@@ -276,6 +276,8 @@ button { color: inherit; }
   opacity: 0.8;
 }
 .spot-card-main { margin: auto 0; }
+.spot-card-main--logo { min-height:82px; display:grid; place-items:center; }
+.spot-brand-logo { width:min(82%,260px); height:min(110px,100%); object-fit:contain; filter:none; animation:brand-float 2.6s ease-in-out infinite; }
 .spot-card-main h3 {
   margin: 0 0 8px;
   font-size: clamp(25px, 2.4vw, 36px);
@@ -338,6 +340,8 @@ button { color: inherit; }
 .rank-number { font-size:18px; font-weight:900; }
 .rank-brand { display:flex; flex-direction:column; gap:4px; }
 .rank-brand strong { font-size:15px; }
+.rank-logo,.my-bid-logo { width:auto; max-width:120px; height:44px; object-fit:contain; object-position:left center; }
+.my-bid-logo { height:56px; }
 .rank-brand small,.rank-status { font-size:10px; opacity:.62; text-transform:uppercase; letter-spacing:.06em; }
 .rank-amount { font-size:18px; }
 .rank-status { text-align:right; }
@@ -473,6 +477,7 @@ button { color: inherit; }
 .preview-map { position:relative; height:190px; overflow:hidden; border-radius:15px; background:#1d1d1d; color:white; }
 .preview-event { position:absolute; inset:0; display:grid; place-items:center; font-size:38px; font-weight:950; letter-spacing:-.07em; opacity:.16; }
 .preview-logo { position:absolute; display:grid; place-items:center; min-width:64px; min-height:34px; border-radius:6px; padding:8px; background:var(--acid); color:#151515; font-size:11px; font-weight:950; text-align:center; box-shadow:0 10px 25px rgba(0,0,0,.3); animation:brand-float 2.6s ease-in-out infinite; }
+.preview-logo img { width:100%; height:100%; max-height:82px; object-fit:contain; }
 @keyframes brand-float { 50% { transform:translateY(-4px) scale(1.025); box-shadow:0 16px 30px rgba(0,0,0,.38); } }
 .preview-logo--corner-a { left:4%; top:7%; }
 .preview-logo--top-band { left:25%; right:25%; top:7%; }
@@ -502,6 +507,12 @@ button { color: inherit; }
   outline: none;
 }
 .field input:focus { border-color: var(--red); box-shadow: 0 0 0 3px rgba(255, 76, 46, 0.12); }
+.logo-upload { position:relative; }
+.logo-upload-control { min-height:72px; padding:14px 16px; display:flex; align-items:flex-start; justify-content:center; flex-direction:column; gap:5px; border:1px dashed var(--red); border-radius:12px; background:#fff7f4; color:var(--red-deep); }
+.logo-upload-control strong { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
+.logo-upload-control small { color:var(--muted); }
+.logo-upload>input[type="file"] { position:absolute; inset:25px 0 0; width:100%; height:72px; opacity:0; cursor:pointer; }
+.logo-upload:focus-within .logo-upload-control { box-shadow:0 0 0 3px rgba(255,76,46,.12); }
 .currency-field {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -546,6 +557,7 @@ button { color: inherit; }
 .contact-row--head { min-height:42px; border:0; color:var(--muted); font-size:9px; font-weight:850; letter-spacing:.08em; text-transform:uppercase; }
 .contact-row>span { display:flex; flex-direction:column; align-items:flex-start; gap:5px; }
 .contact-row a:not(.button) { color:var(--red-deep); }
+.admin-contact-logo { width:auto; max-width:110px; height:40px; object-fit:contain; object-position:left center; }
 .contact-status { padding:6px 8px; border:1px solid currentColor; border-radius:999px; font-size:9px; letter-spacing:.06em; text-transform:uppercase; }
 .contact-status--reserved,.contact-status--contacted { color:#317c35; }
 .contact-status--leading { color:#a14b1b; }

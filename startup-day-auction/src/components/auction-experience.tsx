@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import Image from "next/image";
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 
 import { formatArs } from "@/lib/auction/format";
 import type { AuctionState, BidStatus, PublicSpot, TrackedBid } from "@/lib/auction/types";
@@ -252,15 +253,14 @@ function SpotCard({
         <span>{spot.tier} · {spot.sizeLabel}</span>
         <span className="spot-status">{stateLabel}</span>
       </span>
-      <span className="spot-card-main">
-        <h3>{spot.placement}</h3>
-        <p>{spot.description}</p>
+      <span className={`spot-card-main${spot.sponsorLogoUrl?" spot-card-main--logo":""}`}>
+        {spot.sponsorLogoUrl?<Image className="spot-brand-logo" src={spot.sponsorLogoUrl} alt={`Logo líder de ${spot.sponsor??"la subasta"}`} width={260} height={150} unoptimized/>:<><h3>{spot.placement}</h3><p>{spot.description}</p></>}
       </span>
       <span className="spot-card-bottom">
         <span className="spot-bid">
           <span>{spot.currentBidCents ? "Oferta líder" : "Oferta inicial"}</span>
           <strong>{formatArs(spot.currentBidCents ?? spot.startingAmountCents)}</strong>
-          <span className="spot-sponsor">{spot.sponsor ?? "Sin ofertas todavía"}</span>
+          <span className="spot-sponsor">{spot.sponsorLogoUrl ? "Logo líder" : "Sin ofertas todavía"}</span>
         </span>
         <span className="spot-actions">
           <button className="spot-action spot-action--secondary" type="button" onClick={() => onViewOffers(spot)} data-testid={`view-offers-${spot.id}`}>
@@ -288,8 +288,16 @@ function BidDialog({
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [company, setCompany] = useState("");
+  const [logoDataUrl,setLogoDataUrl]=useState<string|null>(null);
+  const [logoFileName,setLogoFileName]=useState("");
   const [confirmed, setConfirmed] = useState(false);
+
+  function selectLogo(event:ChangeEvent<HTMLInputElement>){
+    const file=event.target.files?.[0];setError(null);setLogoDataUrl(null);setLogoFileName("");
+    if(!file)return;
+    if(!["image/png","image/jpeg"].includes(file.type)||file.size>2_000_000){event.target.value="";setError("Subí un logo PNG o JPG de hasta 2 MB.");return;}
+    const reader=new FileReader();reader.onload=()=>{if(typeof reader.result==="string"){setLogoDataUrl(reader.result);setLogoFileName(file.name);}};reader.onerror=()=>setError("No pudimos leer ese archivo.");reader.readAsDataURL(file);
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -298,12 +306,14 @@ function BidDialog({
     const data = new FormData(event.currentTarget);
 
     try {
+      if(!logoDataUrl||!logoFileName)throw new Error("Subí un logo PNG o JPG.");
       const response = await fetch("/api/bids", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           spotId: spot.id,
-          company: data.get("company"),
+          logoFileName,
+          logoDataUrl,
           email: data.get("email"),
           amountArs: Number(data.get("amount")),
         }),
@@ -352,10 +362,11 @@ function BidDialog({
           <p>La oferta y el email quedaron guardados. Si terminás primero, el lugar quedará reservado a ese correo para que el equipo te contacte manualmente.</p>
           <button className="button button--dark" type="button" onClick={onClose}>Seguir la subasta</button>
         </div> : <form className="bid-form" onSubmit={submit}>
-          <BrandPreview spot={spot} company={company} />
-          <label className="field">
-            <span>Marca o empresa</span>
-            <input name="company" value={company} onChange={(event)=>setCompany(event.target.value)} placeholder="Ej. Prisma Labs" autoComplete="organization" required minLength={2} maxLength={80} />
+          <BrandPreview spot={spot} logoDataUrl={logoDataUrl} />
+          <label className="field logo-upload">
+            <span>Logo de la marca</span>
+            <span className="logo-upload-control"><strong>{logoFileName||"Elegir archivo PNG o JPG"}</strong><small>Máximo 2 MB</small></span>
+            <input name="logo" type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" onChange={selectLogo} required />
           </label>
           <label className="field">
             <span>Tu oferta</span>
@@ -403,7 +414,7 @@ function AuctionRanking({spot,spots,now,onSelect}:{spot:PublicSpot;spots:PublicS
     </div>
     {spot.ranking.length ? <ol className="ranking-list" data-testid="ranking-list">
       {spot.ranking.map(bid=><li key={`${bid.createdAt}-${bid.rank}`} className={bid.rank===1?"ranking-row ranking-row--leader":"ranking-row"}>
-        <span className="rank-number">#{bid.rank}</span><span className="rank-brand"><strong>{bid.company}</strong><small>{bid.status==="RESERVED"||bid.status==="CONTACTED"?"Ganadora":bid.rank===1?"Liderando":"Oferta superada"}</small></span><strong className="rank-amount">{formatArs(bid.amountCents)}</strong><span className="rank-status">{bidStatusLabel(bid.status)}</span>
+        <span className="rank-number">#{bid.rank}</span><span className="rank-brand">{bid.logoUrl?<Image className="rank-logo" src={bid.logoUrl} alt={`Logo de la oferta #${bid.rank}`} width={120} height={48} unoptimized/>:<strong>{bid.company}</strong>}<small>{bid.status==="RESERVED"||bid.status==="CONTACTED"?"Ganadora":bid.rank===1?"Liderando":"Oferta superada"}</small></span><strong className="rank-amount">{formatArs(bid.amountCents)}</strong><span className="rank-status">{bidStatusLabel(bid.status)}</span>
       </li>)}
     </ol> : <div className="ranking-empty"><strong>Sin ofertas todavía</strong><span>La primera oferta abre esta subasta durante 72 horas.</span></div>}
   </section>;
@@ -415,7 +426,7 @@ function MyBids({bids,now}:{bids:TrackedBid[];now:number}) {
     {bids.length ? <div className="my-bids-grid" data-testid="my-bids-list">{bids.map(bid=><article className="my-bid" key={bid.id}>
       <div className="my-bid-top"><span className="auction-state">{bidStatusLabel(bid.status)}</span><span>{bid.rank?`#${bid.rank} en el ranking`:"Ronda finalizada"}</span></div>
       <h3>{bid.placement}</h3><strong className="my-bid-amount">{formatArs(bid.amountCents)}</strong>
-      <dl><div><dt>Marca</dt><dd>{bid.company}</dd></div><div><dt>Email vinculado</dt><dd>{bid.maskedEmail}</dd></div><div><dt>Estado</dt><dd>{trackedBidExplanation(bid,now)}</dd></div></dl>
+      <dl><div><dt>Logo</dt><dd>{bid.logoUrl?<Image className="my-bid-logo" src={bid.logoUrl} alt="Logo de tu oferta" width={120} height={56} unoptimized/>:bid.company}</dd></div><div><dt>Email vinculado</dt><dd>{bid.maskedEmail}</dd></div><div><dt>Estado</dt><dd>{trackedBidExplanation(bid,now)}</dd></div></dl>
     </article>)}</div> : <div className="my-bids-empty"><strong>Todavía no ofertaste desde este navegador.</strong><span>Cuando confirmes una oferta va a aparecer acá, vinculada al email que ingresaste.</span></div>}
   </section>;
 }
@@ -430,11 +441,10 @@ function trackedBidExplanation(bid:TrackedBid,now:number) {
   return bidStatusLabel(bid.status);
 }
 
-function BrandPreview({spot,company}:{spot:PublicSpot;company:string}) {
-  const mark=(company.trim()||"TU MARCA").slice(0,18);
-  return <div className="brand-preview" aria-label={`Vista previa de ${mark} en ${spot.placement}`}>
+function BrandPreview({spot,logoDataUrl}:{spot:PublicSpot;logoDataUrl:string|null}) {
+  return <div className="brand-preview" aria-label={`Vista previa del logo en ${spot.placement}`}>
     <div className="brand-preview-head"><span>Vista previa en vivo</span><strong>{spot.placement}</strong></div>
-    <div className="preview-map"><span className="preview-event">STARTUP DAY</span><span className={`preview-logo preview-logo--${spot.id}`}>{mark}</span></div>
+    <div className="preview-map"><span className="preview-event">STARTUP DAY</span><span className={`preview-logo preview-logo--${spot.id}`}>{logoDataUrl?<Image src={logoDataUrl} alt="Logo seleccionado" width={180} height={90} unoptimized/>:<span>SUBÍ TU LOGO</span>}</span></div>
   </div>;
 }
 

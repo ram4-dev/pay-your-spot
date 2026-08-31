@@ -2,6 +2,7 @@
 
 import { useMemo,useState,type FormEvent } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { formatArs } from "@/lib/auction/format";
 import type { ContactRecord } from "@/lib/auction/types";
 
@@ -19,7 +20,7 @@ export function AdminReservations(){
   return <main className="admin-page"><header className="admin-header"><div><Link href="/" className="brand">Startup Day <sup>2026</sup></Link><p className="eyebrow">Gestión manual</p><h1>Reservas y emails</h1></div><button className="button button--dark" onClick={exportCsv}>Exportar CSV</button></header>
     <section className="admin-metrics"><div><strong>{contacts.length}</strong><span>Emails guardados</span></div><div><strong>{reservations.length}</strong><span>Reservas ganadoras</span></div><div><strong>{reservations.filter(item=>!item.contactedAt).length}</strong><span>Pendientes de contactar</span></div></section>
     <section className="admin-contacts"><div className="admin-toolbar"><label className="field"><span>Buscar</span><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Empresa, email o lugar"/></label><button className="button" onClick={()=>void load()}>Actualizar</button></div>
-      <div className="contact-table"><div className="contact-row contact-row--head"><span>Estado</span><span>Empresa / email</span><span>Lugar</span><span>Oferta</span><span>Acciones</span></div>{filtered.map(item=><article className="contact-row" key={item.bidId}><span><b className={`contact-status contact-status--${item.bidStatus.toLowerCase()}`}>{statusLabel(item.bidStatus)}</b>{item.rank&&<small>Ranking #{item.rank}</small>}</span><span><strong>{item.company}</strong><a href={`mailto:${item.email}`}>{item.email}</a></span><span>{item.placement}</span><strong>{formatArs(item.amountCents)}</strong><span className="contact-actions"><a className="button" href={mailTo(item)}>Redactar mail</a>{!item.contactedAt&&<button className="button" onClick={()=>void contact(item.bidId)}>Marcar contactado</button>}</span></article>)}</div>
+      <div className="contact-table"><div className="contact-row contact-row--head"><span>Estado</span><span>Logo / email</span><span>Lugar</span><span>Oferta</span><span>Acciones</span></div>{filtered.map(item=><article className="contact-row" key={item.bidId}><span><b className={`contact-status contact-status--${item.bidStatus.toLowerCase()}`}>{statusLabel(item.bidStatus)}</b>{item.rank&&<small>Ranking #{item.rank}</small>}</span><span>{item.logoUrl?<Image className="admin-contact-logo" src={item.logoUrl} alt={`Logo ${item.company}`} width={110} height={44} unoptimized/>:<strong>{item.company}</strong>}<a href={`mailto:${item.email}`}>{item.email}</a></span><span>{item.placement}</span><strong>{formatArs(item.amountCents)}</strong><span className="contact-actions"><a className="button" href={mailTo(item)}>Redactar mail</a>{!item.contactedAt&&<button className="button" onClick={()=>void contact(item.bidId)}>Marcar contactado</button>}</span></article>)}</div>
       {!filtered.length&&<div className="my-bids-empty"><strong>No hay contactos para mostrar.</strong><span>Los emails se guardan cuando alguien confirma una oferta.</span></div>}
     </section></main>;
 }
