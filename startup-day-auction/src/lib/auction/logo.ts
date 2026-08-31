@@ -1,0 +1,3 @@
+export const MAX_LOGO_BYTES=5_000_000;
+export const MAX_LOGO_DATA_URL_LENGTH=6_700_000;
+export const MAX_LOGO_MB=MAX_LOGO_BYTES/1_000_000;

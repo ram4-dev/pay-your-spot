@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getAuctionDurationMs } from "./constants";
+import { MAX_LOGO_BYTES,MAX_LOGO_MB } from "./logo";
 import { type AuctionDatabase,transaction } from "./database";
 import type { AuctionState,BidStatus,ContactRecord,CreateBidInput,InternalBid,PublicBid,PublicSpot,SpotStatus,TrackedBid } from "./types";
 
@@ -21,7 +22,7 @@ export function placeBid(database:AuctionDatabase,input:CreateBidInput,now=new D
     if(!/^\S+@\S+\.\S+$/.test(email)||email.length>254)throw new AuctionError("INVALID_EMAIL","Ingresá un email válido.");
     const id=randomUUID(),nowIso=now.toISOString();
     if(leader)database.prepare("UPDATE bids SET status='OUTBID',updated_at=? WHERE id=? AND status='LEADING'").run(nowIso,leader.id);
-    if(input.logoBytes.byteLength===0||input.logoBytes.byteLength>2_000_000)throw new AuctionError("INVALID_LOGO","Subí un logo PNG o JPG de hasta 2 MB.");
+    if(input.logoBytes.byteLength===0||input.logoBytes.byteLength>MAX_LOGO_BYTES)throw new AuctionError("INVALID_LOGO",`Subí un logo PNG o JPG de hasta ${MAX_LOGO_MB} MB.`);
     database.prepare("INSERT INTO bids(id,spot_id,bidder_company,bidder_email,bidder_logo,logo_mime_type,amount_cents,status,created_at,updated_at)VALUES(?,?,?,?,?,?,?,'LEADING',?,?)").run(id,spot.id,company,email,input.logoBytes,input.logoMimeType,input.amountCents,nowIso,nowIso);
     const startsAt=spot.started_at??nowIso,endsAt=spot.ends_at??new Date(now.getTime()+getAuctionDurationMs()).toISOString();
     database.prepare("UPDATE spots SET status='ACTIVE',started_at=?,ends_at=?,leading_bid_id=?,auction_round=CASE WHEN status='AVAILABLE' THEN auction_round+1 ELSE auction_round END WHERE id=?").run(startsAt,endsAt,id,spot.id);

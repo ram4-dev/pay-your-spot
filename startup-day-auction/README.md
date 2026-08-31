@@ -4,7 +4,7 @@ Aplicación Next.js independiente para subastar los 12 lugares reales de la panc
 
 ## Flujo
 
-1. La marca elige un lugar, sube un logo PNG/JPG, ingresa email e importe y confirma la oferta.
+1. La marca elige un lugar, sube un logo PNG/JPG de hasta 5 MB, ingresa email e importe y confirma la oferta.
 2. La primera oferta abre la subasta durante 72 horas y coloca el logo en el lugar elegido. Las siguientes actualizan el ranking y el logo líder.
 3. Al cierre, el lugar queda `RESERVED` permanentemente para la oferta ganadora.
 4. La reserva conserva logo, email, importe, lugar y fecha en SQLite. No vence.

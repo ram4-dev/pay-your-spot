@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { getAuctionDatabase } from "@/lib/auction/database";
+import { MAX_LOGO_BYTES,MAX_LOGO_DATA_URL_LENGTH,MAX_LOGO_MB } from "@/lib/auction/logo";
 import { AuctionError, getAuctionState, placeBid } from "@/lib/auction/service";
 
 export const runtime = "nodejs";
@@ -8,7 +9,7 @@ export const runtime = "nodejs";
 const bidSchema = z.object({
   spotId: z.string().min(1).max(80),
   logoFileName: z.string().trim().min(1).max(180),
-  logoDataUrl: z.string().max(2_700_000),
+  logoDataUrl: z.string().max(MAX_LOGO_DATA_URL_LENGTH),
   email: z.email().max(254),
   amountArs: z.number().int().positive().max(100_000_000),
 });
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
       );
     }
     const logo=parseLogo(parsed.data.logoDataUrl);
-    if(!logo)return Response.json({error:{code:"INVALID_LOGO",message:"Subí un logo PNG o JPG de hasta 2 MB."}},{status:400});
+    if(!logo)return Response.json({error:{code:"INVALID_LOGO",message:`Subí un logo PNG o JPG de hasta ${MAX_LOGO_MB} MB.`}},{status:400});
     const company=brandLabel(parsed.data.logoFileName,parsed.data.email);
 
     const bid = placeBid(getAuctionDatabase(),
@@ -56,7 +57,7 @@ function parseLogo(dataUrl:string){
   const match=/^data:(image\/png|image\/jpeg);base64,([A-Za-z0-9+/]+={0,2})$/.exec(dataUrl);
   if(!match)return null;
   const bytes=Buffer.from(match[2],"base64"),mimeType=match[1] as "image/png"|"image/jpeg";
-  if(bytes.byteLength===0||bytes.byteLength>2_000_000)return null;
+  if(bytes.byteLength===0||bytes.byteLength>MAX_LOGO_BYTES)return null;
   const png=mimeType==="image/png"&&bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
   const jpeg=mimeType==="image/jpeg"&&bytes[0]===0xff&&bytes[1]===0xd8&&bytes[2]===0xff;
   return png||jpeg?{bytes,mimeType}:null;

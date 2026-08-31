@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 
 import { formatArs } from "@/lib/auction/format";
+import { MAX_LOGO_BYTES,MAX_LOGO_MB } from "@/lib/auction/logo";
 import type { AuctionState, BidStatus, PublicSpot, TrackedBid } from "@/lib/auction/types";
 
 const steps = [
@@ -254,13 +255,13 @@ function SpotCard({
         <span className="spot-status">{stateLabel}</span>
       </span>
       <span className={`spot-card-main${spot.sponsorLogoUrl?" spot-card-main--logo":""}`}>
-        {spot.sponsorLogoUrl?<Image className="spot-brand-logo" src={spot.sponsorLogoUrl} alt={`Logo líder de ${spot.sponsor??"la subasta"}`} width={260} height={150} unoptimized/>:<><h3>{spot.placement}</h3><p>{spot.description}</p></>}
+        {spot.sponsorLogoUrl?<Image className="spot-brand-logo" src={spot.sponsorLogoUrl} alt={`Logo líder de ${spot.sponsor??"la subasta"}`} width={340} height={180} unoptimized/>:<><h3>{spot.placement}</h3><p>{spot.description}</p></>}
       </span>
       <span className="spot-card-bottom">
         <span className="spot-bid">
           <span>{spot.currentBidCents ? "Oferta líder" : "Oferta inicial"}</span>
           <strong>{formatArs(spot.currentBidCents ?? spot.startingAmountCents)}</strong>
-          <span className="spot-sponsor">{spot.sponsorLogoUrl ? "Logo líder" : "Sin ofertas todavía"}</span>
+          <span className="spot-sponsor">{spot.sponsorLogoUrl ? "Logo líder" : spot.sponsor ?? "Sin ofertas todavía"}</span>
         </span>
         <span className="spot-actions">
           <button className="spot-action spot-action--secondary" type="button" onClick={() => onViewOffers(spot)} data-testid={`view-offers-${spot.id}`}>
@@ -295,7 +296,7 @@ function BidDialog({
   function selectLogo(event:ChangeEvent<HTMLInputElement>){
     const file=event.target.files?.[0];setError(null);setLogoDataUrl(null);setLogoFileName("");
     if(!file)return;
-    if(!["image/png","image/jpeg"].includes(file.type)||file.size>2_000_000){event.target.value="";setError("Subí un logo PNG o JPG de hasta 2 MB.");return;}
+    if(!["image/png","image/jpeg"].includes(file.type)||file.size>MAX_LOGO_BYTES){event.target.value="";setError(`Subí un logo PNG o JPG de hasta ${MAX_LOGO_MB} MB.`);return;}
     const reader=new FileReader();reader.onload=()=>{if(typeof reader.result==="string"){setLogoDataUrl(reader.result);setLogoFileName(file.name);}};reader.onerror=()=>setError("No pudimos leer ese archivo.");reader.readAsDataURL(file);
   }
 
@@ -365,7 +366,7 @@ function BidDialog({
           <BrandPreview spot={spot} logoDataUrl={logoDataUrl} />
           <label className="field logo-upload">
             <span>Logo de la marca</span>
-            <span className="logo-upload-control"><strong>{logoFileName||"Elegir archivo PNG o JPG"}</strong><small>Máximo 2 MB</small></span>
+            <span className="logo-upload-control"><strong>{logoFileName||"Elegir archivo PNG o JPG"}</strong><small>Máximo {MAX_LOGO_MB} MB</small></span>
             <input name="logo" type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" onChange={selectLogo} required />
           </label>
           <label className="field">
@@ -414,7 +415,7 @@ function AuctionRanking({spot,spots,now,onSelect}:{spot:PublicSpot;spots:PublicS
     </div>
     {spot.ranking.length ? <ol className="ranking-list" data-testid="ranking-list">
       {spot.ranking.map(bid=><li key={`${bid.createdAt}-${bid.rank}`} className={bid.rank===1?"ranking-row ranking-row--leader":"ranking-row"}>
-        <span className="rank-number">#{bid.rank}</span><span className="rank-brand">{bid.logoUrl?<Image className="rank-logo" src={bid.logoUrl} alt={`Logo de la oferta #${bid.rank}`} width={120} height={48} unoptimized/>:<strong>{bid.company}</strong>}<small>{bid.status==="RESERVED"||bid.status==="CONTACTED"?"Ganadora":bid.rank===1?"Liderando":"Oferta superada"}</small></span><strong className="rank-amount">{formatArs(bid.amountCents)}</strong><span className="rank-status">{bidStatusLabel(bid.status)}</span>
+        <span className="rank-number">#{bid.rank}</span><span className="rank-brand">{bid.logoUrl?<Image className="rank-logo" src={bid.logoUrl} alt={`Logo de la oferta #${bid.rank}`} width={160} height={64} unoptimized/>:<strong>{bid.company}</strong>}<small>{bid.status==="RESERVED"||bid.status==="CONTACTED"?"Ganadora":bid.rank===1?"Liderando":"Oferta superada"}</small></span><strong className="rank-amount">{formatArs(bid.amountCents)}</strong><span className="rank-status">{bidStatusLabel(bid.status)}</span>
       </li>)}
     </ol> : <div className="ranking-empty"><strong>Sin ofertas todavía</strong><span>La primera oferta abre esta subasta durante 72 horas.</span></div>}
   </section>;
@@ -426,7 +427,7 @@ function MyBids({bids,now}:{bids:TrackedBid[];now:number}) {
     {bids.length ? <div className="my-bids-grid" data-testid="my-bids-list">{bids.map(bid=><article className="my-bid" key={bid.id}>
       <div className="my-bid-top"><span className="auction-state">{bidStatusLabel(bid.status)}</span><span>{bid.rank?`#${bid.rank} en el ranking`:"Ronda finalizada"}</span></div>
       <h3>{bid.placement}</h3><strong className="my-bid-amount">{formatArs(bid.amountCents)}</strong>
-      <dl><div><dt>Logo</dt><dd>{bid.logoUrl?<Image className="my-bid-logo" src={bid.logoUrl} alt="Logo de tu oferta" width={120} height={56} unoptimized/>:bid.company}</dd></div><div><dt>Email vinculado</dt><dd>{bid.maskedEmail}</dd></div><div><dt>Estado</dt><dd>{trackedBidExplanation(bid,now)}</dd></div></dl>
+      <dl><div><dt>Logo</dt><dd>{bid.logoUrl?<Image className="my-bid-logo" src={bid.logoUrl} alt="Logo de tu oferta" width={160} height={72} unoptimized/>:bid.company}</dd></div><div><dt>Email vinculado</dt><dd>{bid.maskedEmail}</dd></div><div><dt>Estado</dt><dd>{trackedBidExplanation(bid,now)}</dd></div></dl>
     </article>)}</div> : <div className="my-bids-empty"><strong>Todavía no ofertaste desde este navegador.</strong><span>Cuando confirmes una oferta va a aparecer acá, vinculada al email que ingresaste.</span></div>}
   </section>;
 }
