@@ -139,7 +139,6 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
         </div>
 
         <div className="banner-map" aria-label="Mapa real de lugares en la pancarta">
-          <div className="banner-stage-copy" aria-hidden="true"><Image src={COMPASS_LOGO} alt="" width={180} height={180}/><strong>STARTUP<br />DAY</strong><span>POWERED BY COMPASS · 2026</span></div>
           {state.spots.map((spot) => (
             <SpotCard key={spot.id} spot={spot} now={now} onSelect={openSpot} onViewOffers={viewOffers} />
           ))}
@@ -240,7 +239,7 @@ function SpotCard({
         data-testid={`spot-hit-area-${spot.id}`}
       />
       <span className="spot-card-top">
-        <span>{spot.tier} · {spot.sizeLabel}</span>
+        <span>{spot.tier}</span>
         <span className="spot-status">{stateLabel}</span>
       </span>
       <span className={`spot-card-main${spot.sponsorLogoUrl?" spot-card-main--logo":""}`}>
