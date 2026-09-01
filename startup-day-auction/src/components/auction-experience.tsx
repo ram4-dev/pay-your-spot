@@ -99,11 +99,6 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
     window.requestAnimationFrame(() => document.getElementById("ranking")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
-  const nearestEnd = state.spots
-    .filter((spot) => spot.status === "ACTIVE" && spot.endsAt)
-    .map((spot) => spot.endsAt!)
-    .sort()[0];
-
   return (
     <main className="page-shell">
       <header className="site-header">
@@ -129,33 +124,7 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
       </header>
 
       <section className="hero" id="inicio">
-        <div className="hero-grid">
-          <div className="hero-copy-block">
-            <p className="hero-kicker">Compass placement protocol · Startup Day 2026</p>
-            <h1>Tu marca, en el <em>lugar correcto.</em></h1>
-            <p className="hero-copy">Elegí una ubicación real, subí tu logo y ofertá sin pagar. Compass mantiene cada lugar, oferta y reserva trazable durante las 72 horas.</p>
-          </div>
-          <div className="hero-compass" aria-label="Compass protege el proceso de asignación">
-            <span className="hero-compass-grid" aria-hidden="true" />
-            <Image src={COMPASS_LOGO} alt="Compass" width={180} height={180} priority />
-            <div className="hero-compass-copy"><span>Allocation gate</span><strong>Compass</strong><small>Verifica · ordena · reserva</small></div>
-            <span className="hero-compass-status"><i /> Gate online</span>
-          </div>
-        </div>
-        <div className="metric-row" aria-label="Estado actual de la subasta">
-          <div className="metric">
-            <strong data-testid="active-auctions">{state.metrics.activeAuctions}</strong>
-            <span>Subastas activas ahora</span>
-          </div>
-          <div className="metric">
-            <strong data-testid="reserved-value">{formatArs(state.metrics.reservedValueCents)}</strong>
-            <span>Valor de reservas cerradas</span>
-          </div>
-          <div className="metric">
-            <strong>{nearestEnd ? formatCountdown(nearestEnd, now) : "—"}</strong>
-            <span>{nearestEnd ? "Próximo cierre" : "Esperando la primera oferta"}</span>
-          </div>
-        </div>
+        <h1>Tu marca, en el <em>lugar correcto.</em></h1>
       </section>
 
       <section className="auction-section" id="subasta" aria-labelledby="auction-title">

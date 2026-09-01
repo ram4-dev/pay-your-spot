@@ -4,7 +4,7 @@ const TINY_PNG=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lE
 
 test("persists the auction and reserves the winner by email without expiration",async({page})=>{
   await page.goto("/");const cards=page.locator("[data-testid^=spot-card-]");await expect(cards).toHaveCount(12);
-  await placeBid(page,"First E2E","first@example.com","5000");await expect(page.getByTestId("active-auctions")).toHaveText("1");
+  await placeBid(page,"First E2E","first@example.com","5000");await expect(page.getByTestId("spot-card-new-spot")).toContainText("Oferta líder");
   await expect(page.getByTestId("spot-card-new-spot").getByAltText("Logo líder de First E2E")).toBeVisible();
   await page.getByTestId("view-offers-new-spot").click();await expect(page.locator("#ranking")).toBeInViewport();await expect(page.getByTestId("ranking-list").getByAltText("Logo de la oferta #1")).toBeVisible();
   await placeBid(page,"Winner E2E","winner@example.com","6000");await expect(page.getByTestId("ranking-list").locator("li").first().getByAltText("Logo de la oferta #1")).toBeVisible();
