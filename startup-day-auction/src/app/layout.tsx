@@ -11,7 +11,10 @@ export const metadata: Metadata = {
   title: "Startup Day × Compass — Subasta de lugares",
   description:
     "Elegí un lugar, ofertá en pesos y asegurá la presencia de tu marca en Startup Day 2026.",
-  icons: { icon: "/icon.svg" },
+  icons: {
+    icon: "https://compassguard.xyz/art/compass-brand-logo.webp",
+    apple: "https://compassguard.xyz/art/compass-brand-logo.webp",
+  },
   openGraph: {
     title: "Startup Day × Compass — Subasta de lugares",
     description: "Subasta en vivo de los lugares de la pancarta principal.",

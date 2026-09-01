@@ -24,6 +24,8 @@ const steps = [
   },
 ];
 
+const COMPASS_LOGO = "https://compassguard.xyz/art/compass-brand-logo.webp";
+
 export function AuctionExperience({ initialState }: { initialState: AuctionState }) {
   const [state, setState] = useState(initialState);
   const [selectedId, setSelectedId] = useState(
@@ -107,7 +109,7 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
       <header className="site-header">
         <nav className="nav-shell" aria-label="Navegación principal">
           <a className="brand" href="#inicio">
-            <Image src="/compass-gate.svg" alt="" width={38} height={38} priority />
+            <Image src={COMPASS_LOGO} alt="" width={42} height={42} priority />
             <span><strong>Startup Day</strong><small>powered by Compass</small></span>
           </a>
           <div className="nav-links">
@@ -135,7 +137,7 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
           </div>
           <div className="hero-compass" aria-label="Compass protege el proceso de asignación">
             <span className="hero-compass-grid" aria-hidden="true" />
-            <Image src="/compass-shield.svg" alt="Compass" width={160} height={160} priority />
+            <Image src={COMPASS_LOGO} alt="Compass" width={180} height={180} priority />
             <div className="hero-compass-copy"><span>Allocation gate</span><strong>Compass</strong><small>Verifica · ordena · reserva</small></div>
             <span className="hero-compass-status"><i /> Gate online</span>
           </div>
@@ -168,7 +170,7 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
         </div>
 
         <div className="banner-map" aria-label="Mapa real de lugares en la pancarta">
-          <div className="banner-stage-copy" aria-hidden="true"><Image src="/compass-gate.svg" alt="" width={160} height={160}/><strong>STARTUP<br />DAY</strong><span>POWERED BY COMPASS · 2026</span></div>
+          <div className="banner-stage-copy" aria-hidden="true"><Image src={COMPASS_LOGO} alt="" width={180} height={180}/><strong>STARTUP<br />DAY</strong><span>POWERED BY COMPASS · 2026</span></div>
           {state.spots.map((spot) => (
             <SpotCard key={spot.id} spot={spot} now={now} onSelect={openSpot} onViewOffers={viewOffers} />
           ))}
@@ -198,7 +200,7 @@ export function AuctionExperience({ initialState }: { initialState: AuctionState
 
       <footer className="footer">
         <div className="footer-inner">
-          <span className="brand"><Image src="/compass-gate.svg" alt="" width={38} height={38}/><span><strong>Startup Day</strong><small>powered by Compass</small></span></span>
+          <span className="brand"><Image src={COMPASS_LOGO} alt="" width={42} height={42}/><span><strong>Startup Day</strong><small>powered by Compass</small></span></span>
           <p>Subastas y reservas administradas por email · importes expresados en pesos argentinos.</p>
           <button
             className="button button--dark"
