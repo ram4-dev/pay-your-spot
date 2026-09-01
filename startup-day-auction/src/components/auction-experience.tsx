@@ -231,6 +231,14 @@ function SpotCard({
       data-testid={`spot-card-${spot.id}`}
       aria-label={`${spot.placement}, ${stateLabel}`}
     >
+      <button
+        className="spot-card-hit-area"
+        type="button"
+        onClick={() => onSelect(spot)}
+        disabled={unavailable}
+        aria-label={`Ofertar por ${spot.placement}`}
+        data-testid={`spot-hit-area-${spot.id}`}
+      />
       <span className="spot-card-top">
         <span>{spot.tier} · {spot.sizeLabel}</span>
         <span className="spot-status">{stateLabel}</span>

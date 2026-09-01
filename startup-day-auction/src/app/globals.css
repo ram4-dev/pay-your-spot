@@ -208,6 +208,20 @@ button { color: inherit; }
   transform: translateY(-5px);
   filter: brightness(1.045);
 }
+.spot-card-hit-area {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+.spot-card-hit-area:focus-visible {
+  outline: 3px solid var(--acid);
+  outline-offset: -5px;
+}
+.spot-card-hit-area:disabled { cursor: not-allowed; }
 .spot-card--charcoal { background: #0d1f17; color: var(--paper); border:1px solid rgba(95,211,188,.34); }
 .spot-card--indigo { background: #12382e; color: var(--paper); }
 .spot-card--brick { background: #a8443a; color: var(--paper); }
@@ -226,6 +240,9 @@ button { color: inherit; }
   filter: grayscale(1);
 }
 .spot-card-top, .spot-card-bottom {
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -242,7 +259,7 @@ button { color: inherit; }
   border-radius: 999px;
   opacity: 0.8;
 }
-.spot-card-main { margin: auto 0; }
+.spot-card-main { position:relative; z-index:2; margin:auto 0; pointer-events:none; }
 .spot-card-main--logo { min-height:110px; display:grid; place-items:center; }
 .spot-brand-logo { width:min(96%,340px); height:min(150px,100%); object-fit:contain; filter:none; animation:brand-float 2.6s ease-in-out infinite; }
 .spot-card-main h3 {
@@ -269,8 +286,8 @@ button { color: inherit; }
   opacity: 0.7;
 }
 .spot-bid strong { font-size: 23px; letter-spacing: -0.035em; }
-.spot-actions { display:flex; align-items:center; justify-content:flex-end; gap:6px; }
-.spot-action { min-height:38px; border:1px solid currentColor; border-radius:999px; padding:0 13px; display:inline-flex; align-items:center; justify-content:center; gap:6px; background:transparent; color:inherit; cursor:pointer; font-size:11px; font-weight:900; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
+.spot-actions { display:flex; align-items:center; justify-content:flex-end; gap:6px; pointer-events:none; }
+.spot-action { min-height:38px; border:1px solid currentColor; border-radius:999px; padding:0 13px; display:inline-flex; align-items:center; justify-content:center; gap:6px; background:transparent; color:inherit; cursor:pointer; font-size:11px; font-weight:900; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; pointer-events:auto; }
 .spot-action:hover,.spot-action:focus-visible { outline:2px solid var(--acid); outline-offset:2px; }
 .spot-action--primary { border-color:transparent; background:rgba(255,255,255,.88); color:#151515; }
 .spot-action:disabled { cursor:not-allowed; opacity:.48; }

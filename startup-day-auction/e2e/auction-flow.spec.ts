@@ -18,7 +18,7 @@ test("persists the auction and reserves the winner by email without expiration",
 
 test("keeps direct offer and ranking actions usable on mobile",async({page})=>{
   await page.setViewportSize({width:390,height:844});await page.goto("/");await page.getByTestId("view-offers-top-band").click();await expect(page.locator("#ranking")).toBeInViewport();
-  await page.getByTestId("offer-button-top-band").click();const dialog=page.getByTestId("bid-dialog");await dialog.getByLabel("Logo de la marca").setInputFiles({name:"prisma-labs.jpg",mimeType:"image/jpeg",buffer:Buffer.from([0xff,0xd8,0xff,0xd9])});await expect(dialog.getByAltText("Logo seleccionado")).toBeVisible();
+  await page.goto("/");await page.getByTestId("spot-hit-area-top-band").click();const dialog=page.getByTestId("bid-dialog");await dialog.getByLabel("Logo de la marca").setInputFiles({name:"prisma-labs.jpg",mimeType:"image/jpeg",buffer:Buffer.from([0xff,0xd8,0xff,0xd9])});await expect(dialog.getByAltText("Logo seleccionado")).toBeVisible();
 });
 
 async function placeBid(page:import("@playwright/test").Page,company:string,email:string,amount:string){await page.getByTestId("offer-button-new-spot").click();const dialog=page.getByTestId("bid-dialog");await dialog.getByLabel("Logo de la marca").setInputFiles({name:`${company}.png`,mimeType:"image/png",buffer:TINY_PNG});await dialog.getByLabel("Tu oferta").fill(amount);await dialog.getByLabel("Email de contacto").fill(email);await dialog.getByRole("button",{name:/Confirmar oferta sin pagar/}).click();await expect(page.getByTestId("bid-confirmed")).toBeVisible();await dialog.getByRole("button",{name:"Seguir la subasta"}).click();}
